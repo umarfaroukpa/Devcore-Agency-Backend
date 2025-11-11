@@ -2,6 +2,13 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import 'dotenv/config'; 
 import authRoutes from './routes/AuthRoutes'; 
+import adminRoutes from './routes/AdminRoutes'; 
+import projectRoutes from './routes/ProjectsRoutes'; 
+import userRoutes from './routes/UserRoutes';
+import developerRoutes from './routes/DeveloperRoutes';
+import clientRoutes from './routes/ClientRoutes';
+import contactRoutes from './routes/ContactRoutes';
+import servicesRoutes from './routes/ServicesRoutes';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -34,7 +41,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Routes
 app.use('/api/v1/auth', authRoutes); 
-app.use('/api/projects', projectsRoutes);
+app.use('/api/v1/admin', adminRoutes); 
+app.use('/api/v1/projects', projectRoutes); 
+app.use('/api/v1/users', userRoutes); 
+app.use('/api/v1/dev', developerRoutes); 
+app.use('/api/v1/clients', clientRoutes); 
+app.use('/api/v1/contact', contactRoutes); 
+app.use('/api/v1/services', servicesRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
