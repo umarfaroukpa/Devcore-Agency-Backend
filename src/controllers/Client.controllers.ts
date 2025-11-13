@@ -5,8 +5,8 @@ import prisma from '../config/prisma';
 export const getAllClients = async (req: Request, res: Response): Promise<Response> => {
     try {
         const clients = await prisma.user.findMany({
-            where: { role: 'client' },
-            select: { id: true, name: true, email: true, createdAt: true }
+            where: { role: 'CLIENT' },
+            select: { id: true, firstName: true, email: true, createdAt: true }
         });
         return res.status(200).json({ count: clients.length, data: clients });
     } catch (error) {

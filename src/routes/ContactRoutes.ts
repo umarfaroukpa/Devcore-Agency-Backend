@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { submitContactForm, getSubmissions } from '../controllers/Contacts.controllers';
-import { protect, restrictTo } from '../middleware/auth.middleware';
+import { restrictTo, authenticate } from '../middleware/Auth.middleware';
 
 const router = Router();
 
@@ -8,6 +8,6 @@ const router = Router();
 router.post('/', submitContactForm);
 
 // Protected route for admins/managers to view submissions
-router.get('/submissions', protect, restrictTo(['admin', 'manager']), getSubmissions);
+router.get('/submissions', authenticate, restrictTo(['admin', 'manager']), getSubmissions);
 
 export default router;

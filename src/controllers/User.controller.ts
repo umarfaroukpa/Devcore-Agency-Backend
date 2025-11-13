@@ -1,4 +1,3 @@
-// src/controllers/UserController.ts
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import bcrypt from 'bcryptjs';
@@ -11,7 +10,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response): Promise<Res
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.userId },
-            select: { id: true, name: true, email: true, role: true, createdAt: true }
+            select: { id: true, firstName: true, email: true, role: true, createdAt: true }
         });
 
         if (!user) {
@@ -35,8 +34,8 @@ export const updateMyProfile = async (req: AuthRequest, res: Response): Promise<
     try {
         const updatedUser = await prisma.user.update({
             where: { id: req.userId },
-            data: { name, email },
-            select: { id: true, name: true, email: true, role: true }
+            data: { firstName: name, email },
+            select: { id: true, firstName: true, email: true, role: true }
         });
         
         return res.status(200).json({ message: 'Profile updated successfully.', data: updatedUser });

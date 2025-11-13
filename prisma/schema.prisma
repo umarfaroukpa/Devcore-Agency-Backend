@@ -8,15 +8,44 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  DEVELOPER
+  CLIENT
+}
+
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
 model User {
   id          String    @id @default(uuid())
   email       String    @unique
   password    String
-  name        String
-  role        String    @default("client")
+  firstName   String?
+  lastName    String?
+  role        UserRole  @default(DEVELOPER)
+  avatar      String?
+  isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  projects    Project[] 
+  assignedTasks Task[]  @relation("AssignedDeveloper")
+  createdTasks  Task[]  @relation("TaskCreator")
+  memberships ProjectMember[] 
+  projects    Project[]
+
+  @@map("users")
 }
 
 model Service {
@@ -36,22 +65,57 @@ model Message {
 }
 
 model Project {
-  id          String    @id @default(uuid())
-  title       String
+  id          String        @id @default(uuid())
+  name        String
   description String?
-  status      String    @default("Pending")
-  clientId    String
+  status      ProjectStatus @default(PENDING)
+  startDate   DateTime?
+  endDate     DateTime?
+  clientName  String
+  clientEmail String
+  clientId    String 
   client      User      @relation(fields: [clientId], references: [id])
-  tasks       Task[]    
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  budget      Float?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  tasks       Task[]
+  members     ProjectMember[]
+  
+  @@map("projects")
 }
 
 model Task {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    String     @default("MEDIUM")
   projectId   String
-  project     Project   @relation(fields: [projectId], references: [id])
+  assignedTo  String?
+  createdBy   String
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?      @relation("AssignedDeveloper", fields: [assignedTo], references: [id])
+  creator     User       @relation("TaskCreator", fields: [createdBy], references: [id])
+  
+  @@map("tasks")
 }
 
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      String   @default("Developer")
+  joinedAt  DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
 

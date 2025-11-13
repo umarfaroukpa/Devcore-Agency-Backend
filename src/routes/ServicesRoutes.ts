@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect, restrictTo } from '../middleware/auth.middleware';
+import { restrictTo, authenticate } from '../middleware/Auth.middleware';
 import { getPublicServices, createService, updateService } from '../controllers/Services.controllers';
 
 const router = Router();
@@ -8,7 +8,7 @@ const router = Router();
 router.get('/', getPublicServices);
 
 // Protected routes for management (Admin/Manager only)
-router.post('/', protect, restrictTo(['admin', 'manager']), createService);
-router.put('/:id', protect, restrictTo(['admin', 'manager']), updateService);
+router.post('/', authenticate, restrictTo(['admin', 'manager']), createService);
+router.put('/:id', authenticate, restrictTo(['admin', 'manager']), updateService);
 
 export default router;

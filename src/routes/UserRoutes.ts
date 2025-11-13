@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { protect } from '../middleware/auth.middleware';
-import { getMyProfile, updateMyProfile, updateMyPassword } from '../controllers/user.controller';
+import { authenticate, restrictTo } from '../middleware/Auth.middleware';
+import { getMyProfile, updateMyProfile, updateMyPassword } from '../controllers/User.controller';
 
 const router = Router();
 
 // Apply protection to all user routes
-router.use(protect);
+router.use(authenticate);
 
 // GET /api/v1/users/me - Get the logged-in user's profile
 router.get('/me', getMyProfile);
