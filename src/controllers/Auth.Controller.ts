@@ -30,10 +30,10 @@ export const signup = async (req: Request, res: Response): Promise<Response> => 
             data: {
                 email,
                 password: hashedPassword, 
-                name,
+                firstName: name,
                 role: role || 'client',
             },
-            select: { id: true, email: true, name: true, role: true } 
+            select: { id: true, email: true, firstName: true, lastName: true, role: true } 
         }) as User; 
 
         //GENERATE TOKEN
@@ -87,7 +87,7 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
         // 4. Successful Login response
         return res.status(200).json({
             message: 'Login successful.',
-            user: { id: user.id, email: user.email, name: user.name, role: user.role },
+            user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
             token: token,
         });
 

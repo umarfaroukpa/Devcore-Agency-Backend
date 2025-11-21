@@ -35,15 +35,26 @@ model User {
   password    String
   firstName   String?
   lastName    String?
+  phone       String?
   role        UserRole  @default(DEVELOPER)
   avatar      String?
   isActive    Boolean   @default(true)
+  isApproved  Boolean?
+  companyName String?
+  industry    String?
+  position    String?
+  skills      String?
+  portfolio   String?
+  experience  String?
+  githubUsername String?
+  approvedBy  String?
+  approvedAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   assignedTasks Task[]  @relation("AssignedDeveloper")
   createdTasks  Task[]  @relation("TaskCreator")
   memberships ProjectMember[] 
-  projects    Project[]
+  projects    Project[] @relation("ClientProjects")
 
   @@map("users")
 }
@@ -74,13 +85,14 @@ model Project {
   clientName  String
   clientEmail String
   clientId    String 
-  client      User      @relation(fields: [clientId], references: [id])
+  client      User      @relation("ClientProjects", fields: [clientId], references: [id])
   budget      Float?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   
   tasks       Task[]
   members     ProjectMember[]
+  
   
   @@map("projects")
 }
@@ -119,3 +131,12 @@ model ProjectMember {
   @@map("project_members")
 }
 
+model InviteCode {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  role        UserRole    // ADMIN or DEVELOPER
+  used        Boolean   @default(false)
+  usedBy      String?
+  usedAt      DateTime?
+  expiresAt   DateTime?
+}

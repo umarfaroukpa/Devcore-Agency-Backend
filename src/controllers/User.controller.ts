@@ -23,7 +23,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response): Promise<Res
     }
 };
 
-// PATCH /api/v1/users/me
+
 export const updateMyProfile = async (req: AuthRequest, res: Response): Promise<Response> => {
     const { name, email } = req.body;
     

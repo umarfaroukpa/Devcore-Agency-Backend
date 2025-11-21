@@ -1,17 +1,18 @@
 import { Router } from 'express';
 import { restrictTo, authenticate } from '../middleware/Auth.middleware';
-import { getAllClients, getClientDetails, updateClientRole } from '../controllers/Client.controllers';
-
+import { getAllClients,  getClientDetails, updateClientRole, getClientProjects, getProjectDetails, createProject, getClientStats } from '../controllers/Client.controllers';
+  
 const router = Router();
 
-// Apply protection and restrict access to admin/manager for ALL client management
-router.use(authenticate, restrictTo(['admin', 'manager']));
+// Client's own routes - Place these FIRST
+router.get('/projects', authenticate, restrictTo(['CLIENT', 'ADMIN', 'DEVELOPER']), getClientProjects);
+router.get('/projects/:id', authenticate, restrictTo(['CLIENT', 'ADMIN', 'DEVELOPER']), getProjectDetails);
+router.post('/projects', authenticate, restrictTo(['CLIENT']), createProject);
+router.get('/stats', authenticate, restrictTo(['CLIENT']), getClientStats);
 
-// Get a list of all users with the role 'client'
-router.get('/', getAllClients);
-// Get details for a specific client
-router.get('/:id', getClientDetails); 
-// Update a client's role (e.g., changing client to manager)
-router.patch('/:id/role', updateClientRole); 
+// Admin/Manager routes for managing clients - Place these AFTER specific routes
+router.get('/', authenticate, restrictTo(['ADMIN']), getAllClients);
+router.get('/:id', authenticate, restrictTo(['ADMIN']), getClientDetails);
+router.patch('/:id/role', authenticate, restrictTo(['ADMIN']), updateClientRole);
 
 export default router;

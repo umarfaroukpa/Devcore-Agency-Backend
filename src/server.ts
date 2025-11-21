@@ -15,11 +15,12 @@ import servicesRoutes from './routes/ServicesRoutes';
 import { time, timeStamp } from 'console';
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 
 // Set up allowed origins for CORS
 const allowedOrigins = [
   'http://localhost:3000', 
+  'http://localhost:5000', 
 ];
 
 
@@ -96,4 +97,5 @@ process.on('SIGTERM', gracefulShutdown);
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Set ✅' : '⚠️ NOT SET'}`);
 });
