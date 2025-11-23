@@ -3,6 +3,7 @@ import prisma from '../config/prisma';
 import { User } from '@prisma/client'; 
 import bcrypt from 'bcryptjs'; 
 import jwt from 'jsonwebtoken'; 
+import { asyncHandler, AppError } from '../middleware/ErrorHandler';
 
 //Helper function to generate JWT
 const generateToken = (userId: string, role: string) => {
@@ -12,49 +13,119 @@ const generateToken = (userId: string, role: string) => {
 };
 
 //signup controllers
-export const signup = async (req: Request, res: Response): Promise<Response> => {
-    const { email, password, name, role } = req.body;
-    
-    if (!email || !password || !name) {
-        return res.status(400).json({ error: 'Please provide all required fields.' });
+export const signup = asyncHandler(async (req: Request, res: Response) => {
+  const { 
+    name, email, password, phone, role, inviteCode,
+    companyName, industry, position, skills, experience, 
+    githubUsername, portfolio 
+  } = req.body;
+
+  // Validation
+  if (!name || !email || !password) {
+    throw new AppError('Name, email and password are required', 400);
+  }
+
+  // Check if user exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() }
+  });
+
+  if (existingUser) {
+    throw new AppError('Email already registered', 400);
+  }
+
+  // ⭐ VERIFY INVITE CODE FOR DEVELOPER/ADMIN
+  if (role === 'DEVELOPER' || role === 'ADMIN') {
+    if (!inviteCode) {
+      throw new AppError('Invite code is required for this role', 400);
     }
 
-    try {
-        //HASH PASSWORD ---
-        //Generate a salt and hash the password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        
+    const invite = await prisma.inviteCode.findUnique({
+      where: { code: inviteCode.toUpperCase() }
+    });
 
-        const newUser: User = await prisma.user.create({
-            data: {
-                email,
-                password: hashedPassword, 
-                firstName: name,
-                role: role || 'client',
-            },
-            select: { id: true, email: true, firstName: true, lastName: true, role: true } 
-        }) as User; 
-
-        //GENERATE TOKEN
-        const token = generateToken(newUser.id, newUser.role);
-        
-
-        return res.status(201).json({ 
-            message: 'User registered successfully.', 
-            user: newUser,
-            // <-- Send the token back to the client
-            token: token 
-        });
-
-    } catch (error: any) {
-        if (error.code === 'P2002') {
-            return res.status(409).json({ error: 'Email is already in use.' });
-        }
-        console.error("Signup error:", error);
-        return res.status(500).json({ error: 'Server error during registration.' });
+    if (!invite) {
+      throw new AppError('Invalid invite code', 400);
     }
-};
+
+    if (invite.used) {
+      throw new AppError('This invite code has already been used', 400);
+    }
+
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      throw new AppError('This invite code has expired', 400);
+    }
+
+    if (invite.role !== role) {
+      throw new AppError(`This invite code is for ${invite.role} role only`, 400);
+    }
+
+    // Mark invite code as used
+    await prisma.inviteCode.update({
+      where: { code: inviteCode.toUpperCase() },
+      data: {
+        used: true,
+        usedBy: email,
+        usedAt: new Date()
+      }
+    });
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  // Split name into first and last
+  const [firstName, ...lastNameParts] = name.split(' ');
+  const lastName = lastNameParts.join(' ');
+
+  // Create user
+  const user = await prisma.user.create({
+    data: {
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      firstName,
+      lastName: lastName || undefined,
+      phone,
+      role: role || 'CLIENT',
+      companyName,
+      industry,
+      position,
+      skills: skills ? JSON.stringify(skills) : undefined,
+      experience,
+      githubUsername,
+      portfolio,
+      isActive: true,
+      isApproved: role === 'CLIENT' ? true : null // Clients auto-approved
+    }
+  });
+
+  // Generate JWT token
+  const token = jwt.sign(
+    { 
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    },
+    process.env.JWT_SECRET!,
+    { expiresIn: '7d' }
+  );
+
+  res.status(201).json({
+    success: true,
+    message: role === 'CLIENT' 
+      ? 'Account created successfully' 
+      : 'Application submitted. You will be notified once approved.',
+    token: role === 'CLIENT' ? token : undefined,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      isApproved: user.isApproved
+    }
+  });
+});
 
 //login controllers 
 export const login = async (req: Request, res: Response): Promise<Response> => {
@@ -96,3 +167,4 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
         return res.status(500).json({ error: 'Server error during login.' });
     }
 };
+

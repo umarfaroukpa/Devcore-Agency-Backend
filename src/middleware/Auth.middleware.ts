@@ -37,13 +37,30 @@ export const authenticate = async (
 
 export const restrictTo = (roles: string[]) => { 
     return (req: AuthRequest, res: Response, next: NextFunction) => { 
-        // Ensure the user is authenticated and the user object exists
-        if (!req.user || !roles.includes(req.user.role)) {
+        console.log('🔒 Checking role access...');
+        console.log('   Required roles:', roles);
+        console.log('   User role:', req.user?.role);
+        console.log('   User object:', req.user);
+        
+        // here to ensure the user is authenticated and the user object exists
+        if (!req.user) {
+            console.log('❌ No user object on request');
             return res.status(403).json({ 
-                error: 'Access denied. Insufficient permissions.',
+                error: 'Access denied. User not authenticated.',
                 requiredRoles: roles 
             });
         }
+        
+        if (!roles.includes(req.user.role)) {
+            console.log('❌ User role not in allowed roles');
+            return res.status(403).json({ 
+                error: 'Access denied. Insufficient permissions.',
+                requiredRoles: roles,
+                userRole: req.user.role
+            });
+        }
+        
+        console.log('✅ Role check passed');
         next();
     };
 };

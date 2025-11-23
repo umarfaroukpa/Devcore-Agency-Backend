@@ -12,6 +12,7 @@ import developerRoutes from './routes/DeveloperRoutes';
 import clientRoutes from './routes/ClientRoutes';
 import contactRoutes from './routes/ContactRoutes';
 import servicesRoutes from './routes/ServicesRoutes';
+import inviteCodeRoutes from './routes/InviteCode.routes';
 import { time, timeStamp } from 'console';
 
 const app = express();
@@ -56,6 +57,7 @@ app.use('/api/dev', developerRoutes);
 app.use('/api/clients', clientRoutes); 
 app.use('/api/contact', contactRoutes); 
 app.use('/api/services', servicesRoutes);
+app.use('/api/admin/invite-codes', inviteCodeRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {
@@ -75,6 +77,7 @@ app.get('/health', async (req, res) => {
     });
   }
 });
+
 
 // 404 Handler
 app.use(notFoundHandler);

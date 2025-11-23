@@ -2,8 +2,10 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/prisma';
+import { verifyInviteCode } from '../controllers/InviteCode.controller';
 
 const router = express.Router();
+router.post('/verify-invite', verifyInviteCode);
 
 router.post('/signup', async (req, res) => {
   try {

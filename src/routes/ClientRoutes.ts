@@ -7,7 +7,7 @@ const router = Router();
 // Client's own routes - Place these FIRST
 router.get('/projects', authenticate, restrictTo(['CLIENT', 'ADMIN', 'DEVELOPER']), getClientProjects);
 router.get('/projects/:id', authenticate, restrictTo(['CLIENT', 'ADMIN', 'DEVELOPER']), getProjectDetails);
-router.post('/projects', authenticate, restrictTo(['CLIENT']), createProject);
+router.post('/projects', authenticate, restrictTo(['CLIENT', 'DEVELOPER', 'ADMIN']), createProject);
 router.get('/stats', authenticate, restrictTo(['CLIENT']), getClientStats);
 
 // Admin/Manager routes for managing clients - Place these AFTER specific routes

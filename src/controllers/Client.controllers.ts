@@ -342,7 +342,8 @@ export const createProject = asyncHandler(async (req: AuthRequest, res: Response
       members: {
       create: {
       userId: clientId!,
-      role: 'CLIENT' // Ensures role consistency with the UserRole enum
+      // Ensures role consistency with the UserRole enum
+      role: 'CLIENT' 
          }
   }
    },

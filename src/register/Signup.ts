@@ -24,7 +24,7 @@ const result = await pool.query(
 
 
 const user = result.rows[0];
-const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+const token = jwt.sign({ userId: user.id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '15m' });
 res.json({ token, user });
 });
 
