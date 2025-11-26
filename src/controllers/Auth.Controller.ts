@@ -137,13 +137,30 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
     try {
         // 1. Find the user by email
-        const user = await prisma.user.findUnique({
-            where: { email },
-        });
+       // Find user
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: {
+      id: true,
+      email: true,
+      password: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      isActive: true,
+      isApproved: true, 
+      companyName: true,
+      industry: true,
+      position: true,
+      githubUsername: true,
+      portfolio: true,
+      experience: true
+    }
+  });
 
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials.' });
-        }
+  if (!user) {
+    throw new AppError('Invalid credentials', 401);
+  }
 
         // 2. Compare the provided password with the stored hash
         const isMatch = await bcrypt.compare(password, user.password);
@@ -152,6 +169,24 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
+        //Checking if user is approved (for DEVELOPER/ADMIN only)
+  if (user.role !== 'CLIENT' && user.isApproved !== true) {
+    return res.status(403).json({
+      success: false,
+      error: 'Your account is pending approval',
+      needsApproval: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isApproved: user.isApproved
+      }
+    });
+  }
+    
+  
         // 3. Generate Token
         const token = generateToken(user.id, user.role);
 
