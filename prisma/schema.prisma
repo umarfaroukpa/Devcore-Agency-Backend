@@ -85,14 +85,13 @@ model Project {
   clientName  String
   clientEmail String
   clientId    String 
-  client      User      @relation("ClientProjects", fields: [clientId], references: [id])
+  client      User      @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
   budget      Float?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   
   tasks       Task[]
   members     ProjectMember[]
-  
   
   @@map("projects")
 }
@@ -111,8 +110,8 @@ model Task {
   updatedAt   DateTime   @updatedAt
   
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee    User?      @relation("AssignedDeveloper", fields: [assignedTo], references: [id])
-  creator     User       @relation("TaskCreator", fields: [createdBy], references: [id])
+  assignee    User?      @relation("AssignedDeveloper", fields: [assignedTo], references: [id], onDelete: SetNull)
+  creator     User       @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   
   @@map("tasks")
 }
@@ -134,7 +133,7 @@ model ProjectMember {
 model InviteCode {
   id          String    @id @default(uuid())
   code        String    @unique
-  role        UserRole    // ADMIN or DEVELOPER
+  role        UserRole
   used        Boolean   @default(false)
   usedBy      String?
   usedAt      DateTime?

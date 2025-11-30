@@ -1,0 +1,147 @@
+import nodemailer from 'nodemailer';
+
+// === 1. Transporter (SMTP Setup) ===
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false, // true for 465, false for 587
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD, // ← Your Gmail App Password
+  },
+  tls: { rejectUnauthorized: false },
+});
+
+// Test connection on startup
+transporter.verify((err, success) => {
+  if (err) console.error('SMTP Error:', err);
+  else console.log('SMTP Connected →', process.env.SMTP_USER);
+});
+
+// === 2. All Email Templates + Send Function ===
+interface User {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: 'ADMIN' | 'DEVELOPER' | 'CLIENT';
+  companyName?: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  budget?: number;
+}
+
+export const sendEmail = async (
+  to: string,
+  type:
+    | 'approval'
+    | 'welcome-client'
+    | 'password-reset'
+    | 'project-invite'
+    | 'application-received',
+  data: any = {}
+) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  const templates = {
+    // 1. Account Approved (Developer/Admin)
+    approval: {
+      subject: 'Your Devcore Account Has Been Approved!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f9fafb; border-radius: 12px;">
+          <div style="background: white; padding: 30px; border-radius: 12px; text-align: center;">
+            <h1 style="color: #1e40af;">Welcome to Devcore!</h1>
+            <p style="font-size: 18px;">Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
+            <p style="font-size: 16px; color: #374151;">
+              Your application as a <strong style="color: #1d4ed8;">${data.user?.role}</strong> has been <span style="color: #16a34a; font-weight: bold;">APPROVED</span>!
+            </p>
+            <a href="${frontendUrl}/login" style="background: #1d4ed8; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin: 20px 0;">
+              Login to Dashboard
+            </a>
+          </div>
+          <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 20px;">© 2025 Devcore</p>
+        </div>
+      `,
+    },
+
+    // 2. Welcome Client
+    'welcome-client': {
+      subject: 'Welcome to Devcore – Let’s Build Something Amazing',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
+          <div style="background: white; color: #1f2937; padding: 40px; border-radius: 12px; margin-top: 20px; text-align: center;">
+            <h1 style="color: #1e40af;">Welcome to Devcore!</h1>
+            <p style="font-size: 17px;">Hi <strong>${data.user?.firstName || data.user?.companyName}</strong>,</p>
+            <p>Thank you for joining. You can now create projects and hire top developers.</p>
+            <a href="${frontendUrl}/dashboard/clients" style="background: #764ba2; color: white; padding: 16px 36px; text-decoration: none; border-radius: 50px; font-weight: bold; margin: 20px 0; display: inline-block;">
+              Go to Dashboard
+            </a>
+          </div>
+        </div>
+      `,
+    },
+
+    // 3. Password Reset
+    'password-reset': {
+      subject: 'Reset Your Devcore Password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f3f4f6; text-align: center;">
+          <div style="background: white; padding: 30px; border-radius: 12px;">
+            <h2 style="color: #dc2626;">Password Reset</h2>
+            <p>Click below to reset your password (expires in 15 minutes):</p>
+            <a href="${data.resetUrl}" style="background: #dc2626; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              Reset Password
+            </a>
+          </div>
+        </div>
+      `,
+    },
+
+    // 4. Project Invitation
+    'project-invite': {
+      subject: `You've Been Invited to "${data.project?.name}"`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
+          <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
+            <h2 style="color: #16a34a;">New Project Invitation!</h2>
+            <p>You've been invited to join:</p>
+            <h3 style="color: #166534;">${data.project?.name}</h3>
+            <a href="${frontendUrl}/projects/${data.project?.id}" style="background: #16a34a; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              View Project
+            </a>
+          </div>
+        </div>
+      `,
+    },
+
+    // 5. Application Received (Pending)
+    'application-received': {
+      subject: 'We Received Your Devcore Application',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #fffbeb;">
+          <div style="background: white; padding: 30px; border-radius: 12px; text-align: center;">
+            <h2 style="color: #92400e;">Application Received!</h2>
+            <p>Thank you for applying as a <strong>${data.user?.role}</strong>.</p>
+            <p>We’ll review it within 24–48 hours.</p>
+            <a href="${frontendUrl}/pending-approval" style="background: #f59e0b; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px;">
+              Check Status
+            </a>
+          </div>
+        </div>
+      `,
+    },
+  };
+
+  const { subject, html } = templates[type];
+
+  await transporter.sendMail({
+    from: `"Devcore" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  });
+
+  console.log(`Email sent → ${type} → ${to}`);
+};

@@ -12,12 +12,10 @@ const router = Router();
 router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  // Validation
   if (!email || !password) {
     throw new AppError('Email and password are required', 400);
   }
 
-  // Find user with all necessary fields
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
     select: {
@@ -30,7 +28,6 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
       isActive: true,
       isApproved: true,
       companyName: true,
-      phone: true
     }
   });
 
@@ -38,23 +35,30 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     throw new AppError('Invalid credentials', 401);
   }
 
-  // Verify password
   const isPasswordValid = await bcrypt.compare(password, user.password);
-  
   if (!isPasswordValid) {
     throw new AppError('Invalid credentials', 401);
   }
 
-  // Check if user is active
   if (!user.isActive) {
     throw new AppError('Your account has been deactivated', 403);
   }
 
-  // ⭐ Check approval status for DEVELOPER/ADMIN
-  if (user.role !== 'CLIENT' && user.isApproved !== true) {
+  //CLIENTS ARE ALWAYS ALLOWED
+  if (user.role === 'CLIENT') {
+    // Force approve on login if somehow null
+    if (user.isApproved !== true) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isApproved: true }
+      });
+    }
+  }
+  // Only DEVELOPER & ADMIN need approval
+  else if (user.isApproved !== true) {
     return res.status(403).json({
       success: false,
-      error: 'Your account is pending approval',
+      error: 'Your account is pending admin approval',
       needsApproval: true,
       user: {
         id: user.id,
@@ -62,31 +66,24 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
-        isApproved: user.isApproved
       }
     });
   }
 
-  // Generate JWT token
+  // Generate token
   const token = jwt.sign(
-    { 
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    },
+    { userId: user.id, email: user.email, role: user.role },
     process.env.JWT_SECRET!,
     { expiresIn: '7d' }
   );
 
-  // Remove password from response
-  const { password: _, ...userWithoutPassword } = user;
+  const { password: _, ...safeUser } = user;
 
-  // Success response
-  res.status(200).json({
+  res.json({
     success: true,
     message: 'Login successful',
     token,
-    user: userWithoutPassword
+    user: safeUser
   });
 }));
 

@@ -12,7 +12,7 @@ interface AuthRequest extends Request {
 }
 
 
-// GET /api/v1/users/me
+// GET /api/users/me
 export const getMyProfile = asyncHandler(async (req: AuthRequest, res: Response): Promise<Response> => {
     try {
         const userId = req.userId;
@@ -45,7 +45,7 @@ export const getMyProfile = asyncHandler(async (req: AuthRequest, res: Response)
 });
 
 
-// PATCH /api/v1/users/me
+// PATCH /api/users/me
 export const updateMyProfile = asyncHandler(async (req: AuthRequest, res: Response): Promise<Response> => {
     // Assuming the client sends firstName and email separately.
     const { firstName, email } = req.body; 
@@ -86,7 +86,7 @@ export const updateMyProfile = asyncHandler(async (req: AuthRequest, res: Respon
     }
 });
 
-// PATCH /api/v1/users/updatePassword
+// PATCH /api/users/updatePassword
 export const updateMyPassword = asyncHandler(async (req: AuthRequest, res: Response): Promise<Response> => {
     const { currentPassword, newPassword } = req.body;
     const userId = req.userId;
