@@ -34,8 +34,8 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError('Email already registered', 400);
   }
 
-  // ⭐ VERIFY INVITE CODE FOR DEVELOPER/ADMIN
-  if (role === 'DEVELOPER' || role === 'ADMIN') {
+  // ⭐ VERIFY INVITE CODE FOR DEVELOPER/ADMIN/SUPER_ADMIN
+  if (role === 'DEVELOPER' || role === 'ADMIN' || role === 'SUPER_ADMIN') {
     if (!inviteCode) {
       throw new AppError('Invite code is required for this role', 400);
     }
@@ -78,6 +78,15 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
   const [firstName, ...lastNameParts] = name.split(' ');
   const lastName = lastNameParts.join(' ');
 
+  // Determine permissions based on role
+  const permissions = {
+    canApproveUsers: role === 'SUPER_ADMIN',
+    canDeleteUsers: role === 'SUPER_ADMIN',
+    canManageProjects: role === 'SUPER_ADMIN' || role === 'ADMIN',
+    canAssignTasks: role === 'SUPER_ADMIN' || role === 'ADMIN',
+    canViewAllProjects: role === 'SUPER_ADMIN'
+  };
+
   // Create user
   const user = await prisma.user.create({
     data: {
@@ -95,7 +104,9 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
       githubUsername,
       portfolio,
       isActive: true,
-      isApproved: role === 'CLIENT' ? true : null // Clients auto-approved
+      // SUPER_ADMIN and CLIENT auto-approved, others need approval
+      isApproved: (role === 'CLIENT' || role === 'SUPER_ADMIN') ? true : null,
+      ...permissions
     }
   });
 
@@ -112,10 +123,10 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
 
   res.status(201).json({
     success: true,
-    message: role === 'CLIENT' 
+    message: role === 'CLIENT' || role === 'SUPER_ADMIN'
       ? 'Account created successfully' 
       : 'Application submitted. You will be notified once approved.',
-    token: role === 'CLIENT' ? token : undefined,
+    token: (role === 'CLIENT' || role === 'SUPER_ADMIN') ? token : undefined,
     user: {
       id: user.id,
       email: user.email,
@@ -137,63 +148,87 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
     try {
         // 1. Find the user by email
-       // Find user
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-    select: {
-      id: true,
-      email: true,
-      password: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      isActive: true,
-      isApproved: true, 
-      companyName: true,
-      industry: true,
-      position: true,
-      githubUsername: true,
-      portfolio: true,
-      experience: true
-    }
-  });
+        const user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                isActive: true,
+                isApproved: true, 
+                companyName: true,
+                industry: true,
+                position: true,
+                githubUsername: true,
+                portfolio: true,
+                experience: true,
+                canApproveUsers: true,
+                canDeleteUsers: true,
+                canManageProjects: true,
+                canAssignTasks: true,
+                canViewAllProjects: true
+            }
+        });
 
-  if (!user) {
-    throw new AppError('Invalid credentials', 401);
-  }
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials.' });
+        }
 
-        // 2. Compare the provided password with the stored hash
+        // 2. Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account has been deactivated. Please contact support.'
+            });
+        }
+
+        // 3. Compare the provided password with the stored hash
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        //Checking if user is approved (for DEVELOPER/ADMIN only)
-  if (user.role !== 'CLIENT' && user.isApproved !== true) {
-    return res.status(403).json({
-      success: false,
-      error: 'Your account is pending approval',
-      needsApproval: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        isApproved: user.isApproved
-      }
-    });
-  }
+        // 4. Check if user is approved (for DEVELOPER/ADMIN only, SUPER_ADMIN and CLIENT are auto-approved)
+        if (user.role !== 'CLIENT' && user.role !== 'SUPER_ADMIN' && user.isApproved !== true) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account is pending approval',
+                needsApproval: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    isApproved: user.isApproved
+                }
+            });
+        }
     
-  
-        // 3. Generate Token
+        // 5. Generate Token
         const token = generateToken(user.id, user.role);
 
-        // 4. Successful Login response
+        // 6. Successful Login response with full user data
         return res.status(200).json({
+            success: true,
             message: 'Login successful.',
-            user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
+            user: { 
+                id: user.id, 
+                email: user.email, 
+                firstName: user.firstName, 
+                lastName: user.lastName, 
+                role: user.role,
+                isApproved: user.isApproved,
+                canApproveUsers: user.canApproveUsers,
+                canDeleteUsers: user.canDeleteUsers,
+                canManageProjects: user.canManageProjects,
+                canAssignTasks: user.canAssignTasks,
+                canViewAllProjects: user.canViewAllProjects
+            },
             token: token,
         });
 
@@ -202,4 +237,3 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
         return res.status(500).json({ error: 'Server error during login.' });
     }
 };
-

@@ -19,6 +19,11 @@ const generateInviteCode = (): string => {
 // POST /api/admin/invite-codes - Create new invite code (Admin only)
 export const createInviteCode = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { role, expiresInDays } = req.body;
+  const creatorId = req.user?.id;
+
+  if (!creatorId) {
+    throw new AppError('Authentication context missing for creator ID.', 500);
+  }
 
   const validRoles = ['ADMIN', 'DEVELOPER'];
   if (!validRoles.includes(role)) {
@@ -34,7 +39,9 @@ export const createInviteCode = asyncHandler(async (req: AuthRequest, res: Respo
     data: {
       code,
       role,
-      expiresAt
+      expiresAt,
+      createdBy: creatorId,
+
     }
   });
 
@@ -112,6 +119,7 @@ export const verifyInviteCode = asyncHandler(async (req: Request, res: Response)
     }
   });
 });
+
 
 // DELETE /api/admin/invite-codes/:id - Delete invite code (Admin only)
 export const deleteInviteCode = asyncHandler(async (req: Request, res: Response) => {

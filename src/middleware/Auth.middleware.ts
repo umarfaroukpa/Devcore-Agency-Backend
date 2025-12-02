@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/prisma'; 
+import { AppError } from './ErrorHandler';
+
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -63,4 +65,43 @@ export const restrictTo = (roles: string[]) => {
         console.log('✅ Role check passed');
         next();
     };
+    
 };
+
+// Middleware to check specific permission
+export const requirePermission = (permission: string) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    const user = req.user;
+
+    // SUPER_ADMIN always has all permissions
+    if (user.role === 'SUPER_ADMIN') {
+      return next();
+    }
+
+    // Check if user has specific permission
+    if (!user[permission]) {
+      return next(
+        new AppError(`Permission denied: ${permission} required`, 403)
+      );
+    }
+
+    next();
+  };
+};
+
+
+// Middleware to restrict SUPER_ADMIN only routes
+export const superAdminOnly = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return next(
+      new AppError('This action requires Super Admin privileges', 403)
+    );
+  }
+  next();
+};
+
+

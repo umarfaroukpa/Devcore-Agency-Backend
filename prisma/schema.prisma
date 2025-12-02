@@ -9,7 +9,8 @@ datasource db {
 }
 
 enum UserRole {
-  ADMIN
+  SUPER_ADMIN  // Full system access
+  ADMIN        // Limited admin access
   DEVELOPER
   CLIENT
 }
@@ -27,6 +28,21 @@ enum TaskStatus {
   IN_PROGRESS
   REVIEW
   DONE
+}
+
+enum ActivityType {
+  USER_CREATED
+  USER_APPROVED
+  USER_DELETED
+  USER_UPDATED
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PROJECT_DELETED
+  TASK_CREATED
+  TASK_ASSIGNED
+  TASK_UPDATED
+  TASK_COMPLETED
+  ROLE_CHANGED
 }
 
 model User {
@@ -47,31 +63,47 @@ model User {
   portfolio   String?
   experience  String?
   githubUsername String?
+  
+  // Admin management fields
   approvedBy  String?
   approvedAt  DateTime?
+  createdBy   String?   // Who created/invited this user
+  invitedBy   String?   // For tracking admin invitations
+  
+  // Permissions (for ADMIN role)
+  canApproveUsers     Boolean @default(false)
+  canDeleteUsers      Boolean @default(false)
+  canManageProjects   Boolean @default(false)
+  canAssignTasks      Boolean @default(false)
+  canViewAllProjects  Boolean @default(false)
+  
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  assignedTasks Task[]  @relation("AssignedDeveloper")
-  createdTasks  Task[]  @relation("TaskCreator")
-  memberships ProjectMember[] 
-  projects    Project[] @relation("ClientProjects")
-
+  
+  // Relations
+  assignedTasks     Task[]          @relation("AssignedDeveloper")
+  createdTasks      Task[]          @relation("TaskCreator")
+  memberships       ProjectMember[] 
+  projects          Project[]       @relation("ClientProjects")
+  activityLogs      ActivityLog[]   @relation("ActivityPerformer")
+  notifications     Notification[]
+  
   @@map("users")
 }
 
 model Service {
-  id        Int      @id @default(autoincrement())
-  title     String
+  id          Int      @id @default(autoincrement())
+  title       String
   description String 
   isActive    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model Message {
-  id      Int      @id @default(autoincrement())
-  name    String
-  email   String
-  content String
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  content   String
   createdAt DateTime @default(now())
 }
 
@@ -85,7 +117,7 @@ model Project {
   clientName  String
   clientEmail String
   clientId    String 
-  client      User      @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
+  client      User          @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
   budget      Float?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -106,6 +138,8 @@ model Task {
   assignedTo  String?
   createdBy   String
   dueDate     DateTime?
+  estimatedHours Int?
+  actualHours    Int?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   
@@ -134,8 +168,41 @@ model InviteCode {
   id          String    @id @default(uuid())
   code        String    @unique
   role        UserRole
+  createdBy   String    // Admin who created the invite
+  permissions Json?     // For ADMIN invites - store specific permissions
   used        Boolean   @default(false)
   usedBy      String?
   usedAt      DateTime?
   expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+// Activity logging for admin actions
+model ActivityLog {
+  id          String       @id @default(uuid())
+  type        ActivityType
+  performedBy String
+  performer   User         @relation("ActivityPerformer", fields: [performedBy], references: [id], onDelete: Cascade)
+  targetId    String?      // ID of affected resource
+  targetType  String?      // 'user', 'project', 'task'
+  details     Json?        // Additional details about the action
+  ipAddress   String?
+  createdAt   DateTime     @default(now())
+  
+  @@map("activity_logs")
+}
+
+// Notifications for users
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  type        String   // 'task_assigned', 'project_update', 'approval', etc.
+  isRead      Boolean  @default(false)
+  link        String?  // Optional link to related resource
+  createdAt   DateTime @default(now())
+  
+  @@map("notifications")
 }

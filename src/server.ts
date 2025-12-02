@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import prisma from './config/prisma';
 import {errorHandler, notFoundHandler}  from './middleware/ErrorHandler';
 import authRoutes from './routes/AuthRoutes'; 
-import adminRoutes from './routes/AdminRoutes'; 
+import adminRouterModule from './routes/AdminRoutes';
 import projectRoutes from './routes/ProjectsRoutes'; 
 import userRoutes from './routes/UserRoutes';
 import developerRoutes from './routes/DeveloperRoutes';
@@ -17,6 +17,8 @@ import { time, timeStamp } from 'console';
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+const { router: adminRoutes, taskRoutes } = adminRouterModule;
 
 // Set up allowed origins for CORS
 const allowedOrigins = [
@@ -30,10 +32,9 @@ app.use(helmet());
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
 app.use(express.json()); 
 
 app.use('/uploads', express.static('uploads'));
@@ -58,6 +59,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/contact', contactRoutes); 
 app.use('/api/services', servicesRoutes);
 app.use('/api/admin/invite-codes', inviteCodeRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Health check
 app.get('/health', async (req, res) => {

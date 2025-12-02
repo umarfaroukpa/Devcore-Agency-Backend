@@ -10,4 +10,5 @@ router.post('/', authenticate, restrictTo(['ADMIN']), createInviteCode);
 router.get('/', authenticate, restrictTo(['ADMIN']), getAllInviteCodes);
 router.delete('/:id', authenticate, restrictTo(['ADMIN']), deleteInviteCode);
 
+
 export default router;
