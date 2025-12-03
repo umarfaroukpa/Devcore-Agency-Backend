@@ -5,7 +5,8 @@ import helmet from 'helmet';
 import prisma from './config/prisma';
 import {errorHandler, notFoundHandler}  from './middleware/ErrorHandler';
 import authRoutes from './routes/AuthRoutes'; 
-import adminRouterModule from './routes/AdminRoutes';
+import adminRouter from './routes/AdminRoutes';
+import taskRoutes from './routes/TaskRoutes';
 import projectRoutes from './routes/ProjectsRoutes'; 
 import userRoutes from './routes/UserRoutes';
 import developerRoutes from './routes/DeveloperRoutes';
@@ -18,7 +19,6 @@ import { time, timeStamp } from 'console';
 const app = express();
 const port = process.env.PORT || 5000;
 
-const { router: adminRoutes, taskRoutes } = adminRouterModule;
 
 // Set up allowed origins for CORS
 const allowedOrigins = [
@@ -51,7 +51,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Routes
 app.use('/api/auth', authRoutes); 
-app.use('/api/admin', adminRoutes); 
+app.use('/api/admin', adminRouter); 
 app.use('/api/projects', projectRoutes); 
 app.use('/api/users', userRoutes); 
 app.use('/api/dev', developerRoutes); 

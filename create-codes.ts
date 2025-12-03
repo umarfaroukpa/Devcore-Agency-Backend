@@ -5,11 +5,12 @@ async function main() {
   console.log('🔧 Creating invite codes...\n');
 
   const codes = [
-    { code: 'ADMIN001', role: 'ADMIN' },
-    { code: 'ADMIN002', role: 'ADMIN' },
-    { code: 'DEV001', role: 'DEVELOPER' },
-    { code: 'DEV002', role: 'DEVELOPER' },
-    { code: 'DEV003', role: 'DEVELOPER' },
+    {code: 'SUPERADMINA1', role: 'SUPER_ADMIN' },
+    { code: 'ADMINA1', role: 'ADMIN' },
+    { code: 'ADMINA2', role: 'ADMIN' },
+    { code: 'DEVEL1', role: 'DEVELOPER' },
+    { code: 'DEVEl2', role: 'DEVELOPER' },
+    { code: 'DEVEl3', role: 'DEVELOPER' },
   ];
 
   for (const { code, role } of codes) {

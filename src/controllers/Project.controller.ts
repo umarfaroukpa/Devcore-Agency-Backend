@@ -19,13 +19,40 @@ export const getMyProjects = async (req: AuthRequest, res: Response): Promise<Re
     }
 };
 
-// Create a new project (Admin/Manager only)
+// Get ALL projects (SUPER_ADMIN/Admins/Developers)
+export const getAllProjects = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const projects = await prisma.project.findMany({
+            select: {
+                id: true,
+                name: true,
+                status: true,
+                client: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                        companyName: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        return res.status(200).json({ data: projects });
+    } catch (error) {
+        console.error('Error fetching all projects:', error);
+        return res.status(500).json({ error: 'Failed to fetch projects.' });
+    }
+};
+
+// Create a new project (SUPER_ADMIN/Admin/developers only)
 export const createProject = async (req: Request, res: Response): Promise<Response> => {
     // Logic to create a project, assign client, etc.
     return res.status(501).json({ message: 'Create Project Not Implemented.' });
 };
 
-// Update project status (Admin/Manager only)
+// Update project status (SUPER_ADMIN/Admin/developers only)
 export const updateProjectStatus = async (req: Request, res: Response): Promise<Response> => {
     // Logic to update project status
     return res.status(501).json({ message: 'Update Project Status Not Implemented.' });

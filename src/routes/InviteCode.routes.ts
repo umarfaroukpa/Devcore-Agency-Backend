@@ -6,9 +6,9 @@ import { createInviteCode, getAllInviteCodes, deleteInviteCode } from '../contro
 const router = Router();
 
 // Admin only routes
-router.post('/', authenticate, restrictTo(['ADMIN']), createInviteCode);
-router.get('/', authenticate, restrictTo(['ADMIN']), getAllInviteCodes);
-router.delete('/:id', authenticate, restrictTo(['ADMIN']), deleteInviteCode);
+router.post('/', authenticate, restrictTo(['SUPER_ADMIN', 'ADMIN']), createInviteCode);
+router.get('/', authenticate, restrictTo(['SUPER_ADMIN', 'ADMIN']), getAllInviteCodes);
+router.delete('/:id', authenticate, restrictTo(['SUPER_ADMIN']), deleteInviteCode);
 
 
 export default router;

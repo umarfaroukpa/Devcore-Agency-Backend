@@ -1,47 +1,33 @@
 import { Router } from 'express';
 import { restrictTo, authenticate, requirePermission, superAdminOnly } from '../middleware/Auth.middleware';
 import { getUsers, deleteUser, getUserById, updateUser, approveUser, getAdminStats, getPendingUsers, getActivityLogs } from '../controllers/Admin.controllers';
-import { createTask, assignTask,  getAvailableDevelopers, getMyTasks, updateTask } from '../controllers/TaskAssignment.controllers'; 
-  
 
-const router = Router();
-const taskRoutes = Router();
 
-// All routes protected and restricted to 'admin'
-router.use(authenticate, restrictTo(['ADMIN', 'SUPER_ADMIN']));
+const adminRouter = Router();
 
-// Stats
-router.get('/stats', getAdminStats);
+// All routes protected and restricted ADMIN and SUPER_ADMIN
+adminRouter.use(authenticate, restrictTo(['ADMIN', 'SUPER_ADMIN']));
 
-// Users
-router.get('/users/pending', getPendingUsers); 
-router.get('/users', getUsers);
-router.get('/users/:id', getUserById);
-router.patch('/users/:id', updateUser);
-router.patch('/users/:id/approve', approveUser);
-router.delete('/users/:id', superAdminOnly, restrictTo(['SUPER_ADMIN']), requirePermission('canDeleteUsers'), deleteUser);
+// Stats all admins can view
+adminRouter.get('/stats', getAdminStats);
+
+// Users management - ADMIN and SUPER_ADMIN
+adminRouter.get('/users/pending', getPendingUsers); 
+adminRouter.get('/users', getUsers);
+adminRouter.get('/users/:id', getUserById);
+
+// Update user - all admins, but with role restrictions in controller
+adminRouter.patch('/users/:id', updateUser);
+
+// Approve users - requires permission
+adminRouter.patch('/users/:id/approve', approveUser);
+
+// Delete users - requires permission
+adminRouter.delete('/users/:id', superAdminOnly, restrictTo(['SUPER_ADMIN']), requirePermission('canDeleteUsers'), deleteUser);
 
 // Activity logs - SUPER_ADMIN only
-router.get('/activity', superAdminOnly, getActivityLogs);
+adminRouter.get('/activity', superAdminOnly, getActivityLogs); 
 
 
-// All task routes require authentication
-taskRoutes.use(authenticate);
 
-// Get my tasks (any authenticated user)
-taskRoutes.get('/my-tasks', getMyTasks);
-
-// Get available developers for assignment
-taskRoutes.get('/available-developers', getAvailableDevelopers);
-
-// Create task (project members and admins)
-taskRoutes.post('/', createTask);
-
-// Assign/reassign task (requires permission or admin role)
-taskRoutes.patch('/:id/assign', assignTask);
-
-// Update task (creator, assignee, or admin)
-taskRoutes.patch('/:id', updateTask);
-
-
-export default {router, taskRoutes};
+export default adminRouter;

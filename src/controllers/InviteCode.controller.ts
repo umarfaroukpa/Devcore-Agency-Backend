@@ -25,7 +25,7 @@ export const createInviteCode = asyncHandler(async (req: AuthRequest, res: Respo
     throw new AppError('Authentication context missing for creator ID.', 500);
   }
 
-  const validRoles = ['ADMIN', 'DEVELOPER'];
+  const validRoles = ['SUPER_ADMIN', 'ADMIN', 'DEVELOPER'];
   if (!validRoles.includes(role)) {
     throw new AppError('Invalid role. Only ADMIN or DEVELOPER codes can be created', 400);
   }
