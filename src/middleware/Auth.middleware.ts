@@ -23,14 +23,30 @@ export const authenticate = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, firstName: true, lastName: true, isActive: true }
+      select: { 
+        id: true, 
+        email: true, 
+        role: true, 
+        firstName: true, 
+        lastName: true, 
+        isActive: true,
+        canApproveUsers: true,
+        canDeleteUsers: true,
+        canManageProjects: true,
+        canAssignTasks: true,
+        canViewAllProjects: true
+      }
     });
 
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    req.user = user;
+    
+    req.user = {
+      ...user,
+      userId: user.id 
+    };
     next();
   } catch (error) {
     return res.status(401).json({ error: 'Invalid token' });

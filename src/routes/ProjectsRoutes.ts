@@ -1,20 +1,40 @@
 import { Router } from 'express';
-import { restrictTo, authenticate } from '../middleware/Auth.middleware';
-import { createProject, getMyProjects, updateProjectStatus, getAllProjects } from '../controllers/Project.controller';
+import { getMyProjects, getAllProjects, createProject, updateProjectStatus, getProjectById, deleteProject, getProjectStats, updateProject, addProjectMember, removeProjectMember, getProjectMembers } from '../controllers/Project.controller';
+import { authenticate, restrictTo } from '../middleware/Auth.middleware';
 
-const router = Router();
+const projectRouter = Router();
 
-// Protect all routes
-router.use(authenticate);
+// All routes require authentication
+projectRouter.use(authenticate);
 
-// GET /api/projects - Get all projects (Admin/Dev/Super Admin)
-router.get('/', restrictTo(['ADMIN', 'SUPER_ADMIN', 'DEVELOPER']), getAllProjects);
 
-// Clients can only get their projects
-router.get('/my-projects', restrictTo(['CLIENT']), getMyProjects);
+// Client can access their own projects
+projectRouter.get('/my-projects', restrictTo(['CLIENT']), getMyProjects);
 
-// Admin/Super/Dev can create and update projects
-router.post('/', restrictTo(['ADMIN', 'DEVELOPER', 'SUPER_ADMIN']), createProject);
-router.patch('/:id/status', restrictTo(['ADMIN', 'DEVELOPER', 'SUPER_ADMIN']), updateProjectStatus);
+// Project statistics for admin dashboard
+projectRouter.get('/stats', restrictTo(['ADMIN', 'SUPER_ADMIN']), getProjectStats);
 
-export default router;
+// Get all projects (accessible to ADMIN and SUPER_ADMIN)
+projectRouter.get('/', restrictTo(['ADMIN', 'SUPER_ADMIN']), getAllProjects);
+
+// Create new project (admin/developer only)
+projectRouter.post('/', restrictTo(['ADMIN', 'SUPER_ADMIN', 'DEVELOPER']), createProject);
+
+// Get specific project details (MUST come after /my-projects and /stats)
+projectRouter.get('/:id', getProjectById);
+
+// Update project (admin/developer only, clients can update their own projects)
+projectRouter.patch('/:id', updateProject);
+
+// Update project status (admin/developer only, clients can update their own projects)
+projectRouter.patch('/:id/status', updateProjectStatus);
+
+// Delete project (SUPER_ADMIN only)
+projectRouter.delete('/:id', restrictTo(['SUPER_ADMIN']), deleteProject);
+
+// Project member management
+projectRouter.get('/:id/members', getProjectMembers);
+projectRouter.post('/:id/members', restrictTo(['ADMIN', 'SUPER_ADMIN', 'DEVELOPER']), addProjectMember);
+projectRouter.delete('/:id/members/:memberId', restrictTo(['ADMIN', 'SUPER_ADMIN', 'DEVELOPER']), removeProjectMember);
+
+export default projectRouter;

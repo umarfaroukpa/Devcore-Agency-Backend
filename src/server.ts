@@ -14,7 +14,7 @@ import clientRoutes from './routes/ClientRoutes';
 import contactRoutes from './routes/ContactRoutes';
 import servicesRoutes from './routes/ServicesRoutes';
 import inviteCodeRoutes from './routes/InviteCode.routes';
-import { time, timeStamp } from 'console';
+import settingsRouter from './routes/SystemSettingsRoutes';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -44,7 +44,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   console.log('🌐 Incoming Request:', {
     method: req.method,
     url: req.url,
-    // Note: If req.body is defined here, the parser worked.
   });
   next();
 });
@@ -52,7 +51,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Routes
 app.use('/api/auth', authRoutes); 
 app.use('/api/admin', adminRouter); 
-app.use('/api/projects', projectRoutes); 
+app.use('/api/admin/projects', projectRoutes); 
 app.use('/api/users', userRoutes); 
 app.use('/api/dev', developerRoutes); 
 app.use('/api/clients', clientRoutes); 
@@ -60,6 +59,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/admin/invite-codes', inviteCodeRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/admin/settings', settingsRouter);
 
 // Health check
 app.get('/health', async (req, res) => {

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
 
+
 // Helper to check if user can assign tasks
 const canAssignTask = (user: any) => {
   return user.role === 'SUPER_ADMIN' || 
@@ -15,7 +16,7 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
     title,
     description,
     projectId,
-    assignedTo, 
+    assignedTo, // Can be array for multiple assignments
     priority = 'MEDIUM',
     dueDate,
     estimatedHours
@@ -386,6 +387,237 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
     message: 'Task updated successfully',
     data: updatedTask
   });
+});
+
+// GET /api/tasks/:id - Get single task details
+export const getTaskById = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const currentUser = (req as any).user;
+
+  const task = await prisma.task.findUnique({
+    where: { id },
+    include: {
+      assignee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true
+        }
+      },
+      creator: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      },
+      project: {
+        select: {
+          id: true,
+          name: true,
+          status: true
+        }
+      }
+    }
+  });
+
+  if (!task) {
+    throw new AppError('Task not found', 404);
+  }
+
+  // Check if user has permission to view this task
+  const isCreator = task.createdBy === currentUser.userId;
+  const isAssignee = task.assignedTo === currentUser.userId;
+  const isAdmin = currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN';
+
+  if (!isCreator && !isAssignee && !isAdmin) {
+    throw new AppError('You do not have permission to view this task', 403);
+  }
+
+  res.status(200).json({
+    success: true,
+    data: task
+  });
+});
+
+// DELETE /api/tasks/:id - Delete task
+export const deleteTask = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const currentUser = (req as any).user;
+
+  const task = await prisma.task.findUnique({
+    where: { id }
+  });
+
+  if (!task) {
+    throw new AppError('Task not found', 404);
+  }
+
+  // Only creator or admin can delete
+  const isCreator = task.createdBy === currentUser.userId;
+  const isAdmin = currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN';
+
+  if (!isCreator && !isAdmin) {
+    throw new AppError('You do not have permission to delete this task', 403);
+  }
+
+  await prisma.task.delete({
+    where: { id }
+  });
+
+  // Log activity
+  await prisma.activityLog.create({
+    data: {
+      type: 'TASK_DELETED',
+      performedBy: currentUser.userId,
+      targetId: id,
+      targetType: 'task',
+      details: { title: task.title }
+    }
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Task deleted successfully'
+  });
+});
+
+// // GET /api/tasks - Get all tasks (filtered by role)
+// export const getAllTasks = asyncHandler(async (req: Request, res: Response) => {
+//   const currentUser = (req as any).user;
+//   const { status, priority, projectId } = req.query;
+
+//   const where: any = {};
+
+//   // Non-admins only see their assigned tasks or tasks they created
+//   if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'ADMIN') {
+//     where.OR = [
+//       { assignedTo: currentUser.userId },
+//       { createdBy: currentUser.userId }
+//     ];
+//   }
+
+//   // Apply filters
+//   if (status) where.status = status;
+//   if (priority) where.priority = priority;
+//   if (projectId) where.projectId = projectId;
+
+//   const tasks = await prisma.task.findMany({
+//     where,
+//     include: {
+//       assignee: {
+//         select: {
+//           id: true,
+//           firstName: true,
+//           lastName: true,
+//           email: true
+//         }
+//       },
+//       project: {
+//         select: {
+//           id: true,
+//           name: true,
+//           status: true
+//         }
+//       },
+//       creator: {
+//         select: {
+//           id: true,
+//           firstName: true,
+//           lastName: true
+//         }
+//       }
+//     },
+//     orderBy: [
+//       { dueDate: 'asc' },
+//       { createdAt: 'desc' }
+//     ]
+//   });
+
+//   res.status(200).json({
+//     success: true,
+//     count: tasks.length,
+//     data: tasks
+//   });
+// });
+
+// GET /api/tasks - Get all tasks (filtered by role)
+// GET /api/tasks - Get all tasks (filtered by role)
+export const getAllTasks = asyncHandler(async (req: Request, res: Response) => {
+  console.log('=== GET /api/tasks called ===');
+  console.log('User:', (req as any).user);
+  
+  const currentUser = (req as any).user;
+  const { status, priority, projectId } = req.query;
+
+  console.log('Query params:', { status, priority, projectId });
+
+  const where: any = {};
+
+  // Admins see all tasks, others see only their tasks or tasks they created
+  if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'ADMIN') {
+    where.OR = [
+      { assignedTo: currentUser.userId || currentUser.id },
+      { createdBy: currentUser.userId || currentUser.id }
+    ];
+  }
+
+  // Apply filters
+  if (status) where.status = status;
+  if (priority) where.priority = priority;
+  if (projectId) where.projectId = projectId;
+
+  console.log('Prisma query where:', where);
+
+  try {
+    console.log('Starting Prisma query...');
+    const tasks = await prisma.task.findMany({
+      where,
+      include: {
+        assignee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        project: {
+          select: {
+            id: true,
+            name: true,
+            status: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      },
+      orderBy: [
+        { dueDate: 'asc' },
+        { createdAt: 'desc' }
+      ]
+    });
+
+    console.log(`Found ${tasks.length} tasks`);
+    
+    res.status(200).json({
+      success: true,
+      count: tasks.length,
+      data: tasks
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllTasks:', error);
+    throw error;
+  }
 });
 
 export { canAssignTask };
