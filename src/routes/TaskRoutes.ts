@@ -4,10 +4,11 @@ import { createTask, assignTask, getAvailableDevelopers, getMyTasks, updateTask,
   
 
 const taskRoutes = Router();
-taskRoutes.use(requirePermission, restrictTo (['ADMIN', 'SUPER_ADMIN']))
-
 // All task routes require authentication
 taskRoutes.use(authenticate);
+
+
+taskRoutes.use(requirePermission, restrictTo (['ADMIN', 'SUPER_ADMIN']))
 
 // Get all tasks (admins see all, others see only their tasks)
 taskRoutes.get('/', getAllTasks);
@@ -32,5 +33,6 @@ taskRoutes.patch('/:id', updateTask);
 
 // Delete task 
  taskRoutes.delete('/:id', deleteTask);
+
 
 export default taskRoutes;

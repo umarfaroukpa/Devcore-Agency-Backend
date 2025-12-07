@@ -10,7 +10,7 @@ const execAsync = promisify(exec);
 
 interface AuthRequest extends Request {
   user?: {
-    id: string;  // Changed from userId to id to match Auth middleware
+    id: string;  
     role: string;
     email: string;
     firstName?: string;
@@ -147,15 +147,16 @@ export const updateTaskStatus = asyncHandler(async (req: AuthRequest, res: Respo
 
 // POST /api/dev/deploy - Trigger deployment
 export const deployTool = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const developerId = req.user?.id;  // Changed from userId to id
-
+  const developerId = req.user?.id; 
+  const { branch = 'main', environment = 'production' } = req.body;
   // Log deployment attempt
   console.log(`🚀 Deployment initiated by developer: ${developerId}`);
+  console.log(`Branch: ${branch}, Environment: ${environment}`);
 
   // Example deployment script (customize based on your setup)
   try {
     // Option 1: Execute a deployment script
-    const { stdout, stderr } = await execAsync('npm run deploy:prod');
+    const { stdout, stderr } = await execAsync(`npm run build`);
     
     console.log('Deployment output:', stdout);
     
@@ -173,6 +174,32 @@ export const deployTool = asyncHandler(async (req: AuthRequest, res: Response) =
     //   body: JSON.stringify({ ref: 'main' })
     // });
 
+    // Option 3: Custom deployment script
+    // You can create a deploy.sh or deploy.js script
+    // const deployScript = path.join(__dirname, '../../scripts/deploy.js');
+    // const { stdout, stderr } = await execAsync(`node ${deployScript} ${environment}`);
+
+    // Option 4: Direct commands
+    // const { stdout, stderr } = await execAsync('git pull && npm install && npm run build');
+
+
+    // Log the deployment
+    await prisma.activityLog.create({
+      data: {
+        type: 'TASK_UPDATED', 
+        performedBy: developerId,
+        targetType: 'deployment',
+        details: {
+          action: 'deploy',
+          environment,
+          branch,
+          status: 'success',
+          timestamp: new Date().toISOString()
+        }
+      }
+    });
+
+
     res.status(202).json({
       success: true,
       message: 'Deployment initiated successfully. Check logs for status.',
@@ -181,8 +208,27 @@ export const deployTool = asyncHandler(async (req: AuthRequest, res: Response) =
 
   } catch (error: any) {
     console.error('Deployment failed:', error);
-    throw new AppError(`Deployment failed: ${error.message}`, 500);
+
+    // Log the failure
+    await prisma.activityLog.create({
+      data: {
+        type: 'TASK_UPDATED',
+        performedBy: developerId,
+        targetType: 'deployment',
+        details: {
+          action: 'deploy',
+          environment,
+          branch,
+          status: 'failed',
+          error: error?.message ?? String(error),
+          timestamp: new Date().toISOString()
+        }
+      }
+    });
+
+    throw new AppError(`Deployment failed: ${error?.message ?? String(error)}`, 500);
   }
+  
 });
 
 // GET /api/dev/logs - View system logs

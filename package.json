@@ -6,6 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/server.ts",
     "dev": "nodemon --exec npx ts-node --prefer-ts-exts src/server.ts",
+    "deploy:prod": "node scripts/deploy.js production",
+    "deploy:staging": "node scripts/deploy.js staging",
     "build": "tsc"
   },
   "keywords": [],

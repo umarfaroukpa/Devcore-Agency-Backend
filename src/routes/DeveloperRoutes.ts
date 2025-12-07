@@ -6,7 +6,7 @@ import {  getDeveloperTasks, getTaskById, updateTaskStatus, deployTool, viewLogs
 const router = Router();
 
 // All routes restricted to 'developer'
-router.use(authenticate, restrictTo(['DEVELOPER', 'ADMIN']));
+router.use(authenticate, restrictTo(['DEVELOPER', 'ADMIN', 'SUPER_ADMIN']));
 
 router.get('/stats', getDeveloperStats);
 router.get('/tasks', getDeveloperTasks);

@@ -15,6 +15,8 @@ import contactRoutes from './routes/ContactRoutes';
 import servicesRoutes from './routes/ServicesRoutes';
 import inviteCodeRoutes from './routes/InviteCode.routes';
 import settingsRouter from './routes/SystemSettingsRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import reportRouter from './routes/ReportRoutes';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -28,15 +30,25 @@ const allowedOrigins = [
 
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// CORS Configuration 
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Cache-Control', 
+    'X-Requested-With'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
-app.use(express.json()); 
 
+app.use(express.json()); 
 app.use('/uploads', express.static('uploads'));
 
 // Request logging middleware
@@ -60,6 +72,9 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/admin/invite-codes', inviteCodeRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/admin/settings', settingsRouter);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/reports', reportRouter);
+
 
 // Health check
 app.get('/health', async (req, res) => {
