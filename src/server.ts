@@ -17,6 +17,7 @@ import inviteCodeRoutes from './routes/InviteCode.routes';
 import settingsRouter from './routes/SystemSettingsRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import reportRouter from './routes/ReportRoutes';
+import forgotPasswordRoutes from './routes/ForgotPasswordRoutes';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -74,6 +75,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/admin/settings', settingsRouter);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRouter);
+app.use('/api/auth', forgotPasswordRoutes);
 
 
 // Health check

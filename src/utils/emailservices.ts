@@ -132,6 +132,26 @@ export const sendEmail = async (
         </div>
       `,
     },
+   
+    // 6. Password Reset Success Notification
+    'password-reset-success': {
+  subject: 'Your Devcore Password Has Been Reset',
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
+      <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
+        <h2 style="color: #16a34a;">Password Reset Successful!</h2>
+        <p>Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
+        <p>Your password has been successfully reset.</p>
+        <p style="color: #dc2626; font-weight: bold;">
+          If you did not make this change, please contact support immediately.
+        </p>
+        <a href="${frontendUrl}/profile/security" style="background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px;">
+          Review Security Settings
+        </a>
+      </div>
+    </div>
+  `,
+}
   };
 
   const { subject, html } = templates[type];

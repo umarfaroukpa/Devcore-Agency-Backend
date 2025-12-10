@@ -44,6 +44,18 @@ enum ActivityType {
   TASK_COMPLETED
   TASK_DELETED
   ROLE_CHANGED
+  PASSWORD_RESET_REQUESTED  
+  PASSWORD_RESET
+}
+
+enum NotificationType {
+  APPROVAL
+  WELCOME_CLIENT
+  PASSWORD_RESET
+  PROJECT_INVITE
+  APPLICATION_RECEIVED
+  TASK_ASSIGNED
+  PROJECT_UPDATE
 }
 
 model User {
@@ -64,6 +76,7 @@ model User {
   portfolio   String?
   experience  String?
   githubUsername String?
+  passwordChangedAt DateTime?
   
   // Admin management fields
   approvedBy  String?
@@ -82,6 +95,7 @@ model User {
   updatedAt   DateTime  @updatedAt
   
   // Relations
+  passwordResets PasswordReset[]
   assignedTasks     Task[]          @relation("AssignedDeveloper")
   createdTasks      Task[]          @relation("TaskCreator")
   memberships       ProjectMember[] 
@@ -206,4 +220,21 @@ model Notification {
   createdAt   DateTime @default(now())
   
   @@map("notifications")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([createdAt])
 }

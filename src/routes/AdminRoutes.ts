@@ -3,6 +3,7 @@ import { restrictTo, authenticate, requirePermission, superAdminOnly } from '../
 import { getUsers, deleteUser, getUserById, updateUser, approveUser, getAdminStats, getPendingUsers, getActivityLogs } from '../controllers/Admin.controllers';
 import { getAllTasks } from '../controllers/TaskAssignment.controllers';
 import reportRouter from './ReportRoutes';
+import inviteCodeRouter from './InviteCode.routes';
 
 
 const adminRouter = Router();
@@ -33,9 +34,14 @@ adminRouter.delete('/users/:id', superAdminOnly, restrictTo(['SUPER_ADMIN']), re
 
 // Activity logs - SUPER_ADMIN only
 adminRouter.get('/activity', superAdminOnly, getActivityLogs); 
+
+// Reports - ADMIN and SUPER_ADMIN
 adminRouter.use('/reports', reportRouter);
 
+// Invite Codes - ADMIN and SUPER_ADMIN
+adminRouter.use('/invite-codes', inviteCodeRouter)
 
+// Tasks - ADMIN and SUPER_ADMIN
 adminRouter.get('/tasks', async (req, res, next) => {
   try {
     // Forward the request to the task controller
