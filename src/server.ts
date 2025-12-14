@@ -27,6 +27,7 @@ const port = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000', 
   'http://localhost:5000', 
+  'http://localhost:3001',
 ];
 
 
@@ -79,7 +80,7 @@ app.use('/api/auth', forgotPasswordRoutes);
 
 
 // Health check
-app.get('/health', async (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`; 
     res.json({ 

@@ -31,7 +31,10 @@ export const getDeveloperTasks = asyncHandler(async (req: AuthRequest, res: Resp
 
   // Build filter
   const where: any = {
-    assignedTo: developerId
+    OR: [
+      { assignedTo: developerId },
+      { createdBy: developerId } 
+    ]
   };
 
   if (status) {
@@ -69,7 +72,7 @@ export const getDeveloperTasks = asyncHandler(async (req: AuthRequest, res: Resp
   res.status(200).json({
     success: true,
     count: tasks.length,
-    tasks
+    data: tasks
   });
 });
 
@@ -81,7 +84,10 @@ export const getTaskById = asyncHandler(async (req: AuthRequest, res: Response) 
   const task = await prisma.task.findFirst({
     where: {
       id,
-      assignedTo: developerId // Ensure developer can only see their tasks
+     OR: [
+        { assignedTo: developerId },
+        { createdBy: developerId } 
+      ]
     },
     include: {
       project: true,
@@ -153,7 +159,7 @@ export const deployTool = asyncHandler(async (req: AuthRequest, res: Response) =
   console.log(`🚀 Deployment initiated by developer: ${developerId}`);
   console.log(`Branch: ${branch}, Environment: ${environment}`);
 
-  // Example deployment script (customize based on your setup)
+  // Example deployment script 
   try {
     // Option 1: Execute a deployment script
     const { stdout, stderr } = await execAsync(`npm run build`);
@@ -294,5 +300,230 @@ export const getDeveloperStats = asyncHandler(async (req: AuthRequest, res: Resp
       inProgressTasks,
       projects
     }
+  });
+});
+
+// Get task comments
+export const getTaskComments = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const developerId = req.user?.id;
+
+  // Verify task belongs to developer
+  const task = await prisma.task.findFirst({
+    where: {
+      id,
+      OR: [
+        { assignedTo: developerId },
+        { createdBy: developerId }
+      ]
+    }
+  });
+
+  if (!task) {
+    throw new AppError('Task not found or access denied', 404);
+  }
+
+  const comments = await prisma.comment.findMany({
+    where: { taskId: id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  res.status(200).json({
+    success: true,
+    count: comments.length,
+    data: comments
+  });
+});
+
+// Add task comment
+export const addTaskComment = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const developerId = req.user?.id;
+  const { content } = req.body;
+
+  if (!content) {
+    throw new AppError('Comment content is required', 400);
+  }
+
+  // Verify task belongs to developer
+  const task = await prisma.task.findFirst({
+    where: {
+      id,
+      OR: [
+        { assignedTo: developerId },
+        { createdBy: developerId }
+      ]
+    }
+  });
+
+  if (!task) {
+    throw new AppError('Task not found or access denied', 404);
+  }
+
+  const comment = await prisma.comment.create({
+    data: {
+      content,
+      taskId: id,
+      userId: developerId
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  // Create activity log
+  await prisma.activityLog.create({
+    data: {
+      type: 'TASK_UPDATED',
+      performedBy: developerId,
+      targetId: id,
+      targetType: 'task',
+      details: {
+        action: 'comment_added',
+        commentId: comment.id,
+        taskTitle: task.title
+      }
+    }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Comment added successfully',
+    data: comment
+  });
+});
+
+// Get task time logs
+export const getTaskTimeLogs = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const developerId = req.user?.id;
+
+  // Verify task belongs to developer
+  const task = await prisma.task.findFirst({
+    where: {
+      id,
+      OR: [
+        { assignedTo: developerId },
+        { createdBy: developerId }
+      ]
+    }
+  });
+
+  if (!task) {
+    throw new AppError('Task not found or access denied', 404);
+  }
+
+  const timeLogs = await prisma.timeLog.findMany({
+    where: { taskId: id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true
+        }
+      }
+    },
+    orderBy: { date: 'desc' }
+  });
+
+  res.status(200).json({
+    success: true,
+    count: timeLogs.length,
+    data: timeLogs
+  });
+});
+
+// Add time log
+export const addTimeLog = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const developerId = req.user?.id;
+  const { hours, description, date } = req.body;
+
+  if (!hours || !description) {
+    throw new AppError('Hours and description are required', 400);
+  }
+
+  // Verify task belongs to developer
+  const task = await prisma.task.findFirst({
+    where: {
+      id,
+      OR: [
+        { assignedTo: developerId },
+        { createdBy: developerId }
+      ]
+    }
+  });
+
+  if (!task) {
+    throw new AppError('Task not found or access denied', 404);
+  }
+
+  const timeLog = await prisma.timeLog.create({
+    data: {
+      hours: parseFloat(hours),
+      description,
+      date: date ? new Date(date) : new Date(),
+      taskId: id,
+      userId: developerId
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true
+        }
+      }
+    }
+  });
+
+  // Update task actual hours
+  const totalHours = await prisma.timeLog.aggregate({
+    where: { taskId: id },
+    _sum: { hours: true }
+  });
+
+  await prisma.task.update({
+    where: { id },
+    data: { actualHours: Math.round(totalHours._sum.hours || 0) }
+  });
+
+  // Create activity log
+  await prisma.activityLog.create({
+    data: {
+      type: 'TASK_UPDATED',
+      performedBy: developerId,
+      targetId: id,
+      targetType: 'task',
+      details: {
+        action: 'time_logged',
+        hours: parseFloat(hours),
+        taskTitle: task.title
+      }
+    }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Time logged successfully',
+    data: timeLog
   });
 });

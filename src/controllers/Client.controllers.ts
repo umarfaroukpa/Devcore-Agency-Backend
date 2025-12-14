@@ -397,3 +397,274 @@ export const getClientStats = asyncHandler(async (req: AuthRequest, res: Respons
     data: stats
  });
 });
+
+// GET /api/clients/projects/:id/comments - Get project comments
+export const getProjectComments = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const userRole = req.user?.role;
+
+  // Verify project access
+  const project = await prisma.project.findFirst({
+    where: {
+      id,
+      OR: [
+        { clientId: userId },
+        { 
+          members: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  if (!project) {
+    throw new AppError('Project not found or access denied', 404);
+  }
+
+  const comments = await prisma.comment.findMany({
+    where: { 
+      projectId: id 
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  res.status(200).json({
+    success: true,
+    count: comments.length,
+    data: comments
+  });
+});
+
+// POST /api/clients/projects/:id/comments - Add project comment
+export const addProjectComment = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { content } = req.body;
+
+  if (!content) {
+    throw new AppError('Comment content is required', 400);
+  }
+
+  // Verify project access
+  const project = await prisma.project.findFirst({
+    where: {
+      id,
+      OR: [
+        { clientId: userId },
+        { 
+          members: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  if (!project) {
+    throw new AppError('Project not found or access denied', 404);
+  }
+
+  const comment = await prisma.comment.create({
+    data: {
+      content,
+      projectId: id,
+      userId: userId!
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  // Create activity log
+  await prisma.activityLog.create({
+    data: {
+      type: 'PROJECT_UPDATED',
+      performedBy: userId,
+      targetId: id,
+      targetType: 'project',
+      details: {
+        action: 'comment_added',
+        commentId: comment.id,
+        projectName: project.name
+      }
+    }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Comment added successfully',
+    data: comment
+  });
+});
+
+// GET /api/clients/projects/:id/time-logs - Get project time logs
+export const getProjectTimeLogs = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  // Verify project access
+  const project = await prisma.project.findFirst({
+    where: {
+      id,
+      OR: [
+        { clientId: userId },
+        { 
+          members: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  if (!project) {
+    throw new AppError('Project not found or access denied', 404);
+  }
+
+  const timeLogs = await prisma.timeLog.findMany({
+    where: { 
+      task: {
+        projectId: id
+      }
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true
+        }
+      },
+      task: {
+        select: {
+          id: true,
+          title: true
+        }
+      }
+    },
+    orderBy: { date: 'desc' }
+  });
+
+  res.status(200).json({
+    success: true,
+    count: timeLogs.length,
+    data: timeLogs
+  });
+});
+
+// POST /api/clients/projects/:id/time-logs - Add project time log
+export const addProjectTimeLog = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { hours, description, date } = req.body;
+
+  if (!hours || !description) {
+    throw new AppError('Hours and description are required', 400);
+  }
+
+  // Verify project access
+  const project = await prisma.project.findFirst({
+    where: {
+      id,
+      OR: [
+        { clientId: userId },
+        { 
+          members: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  if (!project) {
+    throw new AppError('Project not found or access denied', 404);
+  }
+
+  // Create a general project task if no specific task exists
+  let task = await prisma.task.findFirst({
+    where: {
+      projectId: id,
+      title: "General Project Work"
+    }
+  });
+
+  if (!task) {
+    task = await prisma.task.create({
+      data: {
+        title: "General Project Work",
+        description: "General project activities and discussions",
+        projectId: id,
+        createdBy: userId!,
+        status: 'DONE'
+      }
+    });
+  }
+
+  const timeLog = await prisma.timeLog.create({
+    data: {
+      hours: parseFloat(hours),
+      description,
+      date: date ? new Date(date) : new Date(),
+      taskId: task.id,
+      userId: userId!
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true
+        }
+      }
+    }
+  });
+
+  // Create activity log
+  await prisma.activityLog.create({
+    data: {
+      type: 'PROJECT_UPDATED',
+      performedBy: userId,
+      targetId: id,
+      targetType: 'project',
+      details: {
+        action: 'time_logged',
+        hours: parseFloat(hours),
+        projectName: project.name
+      }
+    }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Time logged successfully',
+    data: timeLog
+  });
+});

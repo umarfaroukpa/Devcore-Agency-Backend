@@ -45,7 +45,6 @@ adminRouter.use('/invite-codes', inviteCodeRouter)
 adminRouter.get('/tasks', async (req, res, next) => {
   try {
     // Forward the request to the task controller
-    // You can import your task controller here
     req.url = '/api/tasks';
     next('route'); // Pass to next route handler
   } catch (error) {
