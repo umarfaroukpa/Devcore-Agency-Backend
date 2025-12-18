@@ -1,31 +1,169 @@
 import { Request, Response } from 'express';
+import { asyncHandler, AppError } from '../middleware/ErrorHandler';
+import { sendEmail } from '../utils/emailservices';
 import prisma from '../config/prisma';
 
-// Public: Handle incoming contact form data
-export const submitContactForm = async (req: Request, res: Response): Promise<Response> => {
-    const { name, email, message } = req.body;
+// POST /api/contact - Handle contact form submissions
+export const submitContactForm = asyncHandler(async (req: Request, res: Response) => {
+  const { name, email, company, service, message } = req.body;
+
+  // Validate required fields
+  if (!name || !email || !message) {
+    throw new AppError('Name, email, and message are required', 400);
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new AppError('Invalid email address', 400);
+  }
+
+  try {
+    // Save contact message to database (optional but recommended)
+    const contactMessage = await prisma.contactMessage.create({
+      data: {
+        name,
+        email,
+        company: company || null,
+        service: service || null,
+        message,
+        status: 'NEW', // NEW, READ, REPLIED
+      }
+    });
+
+    // Send confirmation email to client
+    await sendEmail(email, 'message-received-client', {
+      user: { firstName: name }
+    });
+
+    // Send notification email to admin/sales team
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER;
+    if (adminEmail) {
+      await sendEmail(adminEmail, 'new-contact-inquiry', {
+        name,
+        email,
+        company,
+        service,
+        message,
+        messageId: contactMessage.id
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Thank you for your inquiry! We\'ll contact you within 24 hours.',
+      data: {
+        id: contactMessage.id,
+        status: 'received'
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Contact form error:', error);
     
-    if (!email || !message) {
-        return res.status(400).json({ error: 'Email and message are required.' });
+    // If email fails but we want to still save the message
+    if (error.message?.includes('email')) {
+      throw new AppError('Failed to send confirmation email. Please try again or contact us directly.', 500);
     }
+    
+    throw new AppError('Failed to submit contact form. Please try again.', 500);
+  }
+});
 
-    try {
-        // Note: You must create a 'ContactSubmission' model in your schema.prisma first!
-        await (prisma as any).contactSubmission.create({
-            data: { name, email, message }
-        });
+// GET /api/contact - Get all contact messages (Admin only)
+export const getContactMessages = asyncHandler(async (req: Request, res: Response) => {
+  const { status, limit = 50, page = 1 } = req.query;
 
-        // Future idea: Send an email notification to the admin here
+  const where: any = {};
+  if (status) {
+    where.status = status;
+  }
 
-        return res.status(201).json({ message: 'Contact form submitted successfully!' });
-    } catch (error) {
-        console.error('Error submitting contact form:', error);
-        return res.status(500).json({ error: 'Failed to process submission.' });
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [messages, total] = await Promise.all([
+    prisma.contactMessage.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: Number(limit),
+      skip
+    }),
+    prisma.contactMessage.count({ where })
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: messages,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      pages: Math.ceil(total / Number(limit))
     }
-};
+  });
+});
 
-// Protected: Retrieve all contact form submissions
-export const getSubmissions = async (req: Request, res: Response): Promise<Response> => {
-    // Logic to fetch all submissions from the database
-    return res.status(501).json({ message: 'Get Submissions Not Implemented.' });
-};
+// GET /api/contact/:id - Get single contact message
+export const getContactMessageById = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const message = await prisma.contactMessage.findUnique({
+    where: { id }
+  });
+
+  if (!message) {
+    throw new AppError('Contact message not found', 404);
+  }
+
+  // Mark as read
+  if (message.status === 'NEW') {
+    await prisma.contactMessage.update({
+      where: { id },
+      data: { status: 'READ' }
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    data: message
+  });
+});
+
+// PATCH /api/contact/:id - Update contact message status
+export const updateContactMessageStatus = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { status, notes } = req.body;
+
+  const validStatuses = ['NEW', 'READ', 'REPLIED', 'ARCHIVED'];
+  if (status && !validStatuses.includes(status)) {
+    throw new AppError('Invalid status', 400);
+  }
+
+  const message = await prisma.contactMessage.update({
+    where: { id },
+    data: {
+      status: status || undefined,
+      notes: notes || undefined
+    }
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Contact message updated',
+    data: message
+  });
+});
+
+// DELETE /api/contact/:id - Delete contact message
+export const deleteContactMessage = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  await prisma.contactMessage.delete({
+    where: { id }
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Contact message deleted'
+  });
+});

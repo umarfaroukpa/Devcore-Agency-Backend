@@ -8,11 +8,243 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
+model User {
+  id                 String          @id @default(uuid())
+  email              String          @unique
+  password           String
+  firstName          String?
+  lastName           String?
+  role               UserRole        @default(DEVELOPER)
+  avatar             String?
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  approvedAt         DateTime?
+  approvedBy         String?
+  companyName        String?
+  experience         String?
+  githubUsername     String?
+  industry           String?
+  isApproved         Boolean?
+  phone              String?
+  portfolio          String?
+  position           String?
+  skills             String?
+  canApproveUsers    Boolean         @default(false)
+  canAssignTasks     Boolean         @default(false)
+  canDeleteUsers     Boolean         @default(false)
+  canManageProjects  Boolean         @default(false)
+  canViewAllProjects Boolean         @default(false)
+  createdBy          String?
+  invitedBy          String?
+  passwordChangedAt  DateTime?
+  passwordResets     PasswordReset[]
+  activityLogs       ActivityLog[]   @relation("ActivityPerformer")
+  comments           Comment[]
+  notifications      Notification[]
+  memberships        ProjectMember[]
+  projects           Project[]       @relation("ClientProjects")
+  assignedTasks      Task[]          @relation("AssignedDeveloper")
+  createdTasks       Task[]          @relation("TaskCreator")
+  timeLogs           TimeLog[]
+
+  @@map("users")
+}
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus   @default(PENDING)
+  startDate   DateTime?
+  endDate     DateTime?
+  clientName  String
+  clientEmail String
+  budget      Float?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  clientId    String
+  comments    Comment[]
+  members     ProjectMember[]
+  client      User            @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  timeLogs    TimeLog[]
+
+  @@map("projects")
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  title          String
+  description    String?
+  status         TaskStatus @default(TODO)
+  priority       String     @default("MEDIUM")
+  projectId      String
+  assignedTo     String?
+  createdBy      String
+  dueDate        DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  actualHours    Int?
+  estimatedHours Int?
+  comments       Comment[]
+  assignee       User?      @relation("AssignedDeveloper", fields: [assignedTo], references: [id])
+  creator        User       @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeLogs       TimeLog[]
+
+  @@map("tasks")
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      String   @default("Developer")
+  joinedAt  DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  taskId    String?
+  projectId String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model TimeLog {
+  id          String   @id @default(uuid())
+  hours       Float
+  description String
+  date        DateTime
+  taskId      String?
+  projectId   String?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([date])
+  @@map("time_logs")
+}
+
+model InviteCode {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  used        Boolean   @default(false)
+  usedBy      String?
+  usedAt      DateTime?
+  expiresAt   DateTime?
+  role        UserRole
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  permissions Json?
+}
+
+model ActivityLog {
+  id          String       @id @default(uuid())
+  type        ActivityType
+  performedById String?
+  targetId    String?
+  targetType  String?
+  details     Json?
+  ipAddress   String?
+  createdAt   DateTime     @default(now())
+  performer   User?         @relation("ActivityPerformer", fields: [performedById], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+  @@index([performedById])
+  @@index([type])
+  @@index([createdAt])
+
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  company   String?
+  service   String?
+  message   String   @db.Text
+  status    ContactStatus @default(NEW)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contact_messages")
+}
+
 enum UserRole {
-  SUPER_ADMIN  // Full system access
-  ADMIN        // Limited admin access
+  ADMIN
   DEVELOPER
   CLIENT
+  SUPER_ADMIN
 }
 
 enum ProjectStatus {
@@ -42,9 +274,9 @@ enum ActivityType {
   TASK_ASSIGNED
   TASK_UPDATED
   TASK_COMPLETED
-  TASK_DELETED
   ROLE_CHANGED
-  PASSWORD_RESET_REQUESTED  
+  TASK_DELETED
+  PASSWORD_RESET_REQUESTED
   PASSWORD_RESET
 }
 
@@ -58,231 +290,9 @@ enum NotificationType {
   PROJECT_UPDATE
 }
 
-model User {
-  id          String    @id @default(uuid())
-  email       String    @unique
-  password    String
-  firstName   String?
-  lastName    String?
-  phone       String?
-  role        UserRole  @default(DEVELOPER)
-  avatar      String?
-  isActive    Boolean   @default(true)
-  isApproved  Boolean?
-  companyName String?
-  industry    String?
-  position    String?
-  skills      String?
-  portfolio   String?
-  experience  String?
-  githubUsername String?
-  passwordChangedAt DateTime?
-  
-  // Admin management fields
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdBy   String?   // Who created/invited this user
-  invitedBy   String?   // For tracking admin invitations
-  
-  // Permissions (for ADMIN role)
-  canApproveUsers     Boolean @default(false)
-  canDeleteUsers      Boolean @default(false)
-  canManageProjects   Boolean @default(false)
-  canAssignTasks      Boolean @default(false)
-  canViewAllProjects  Boolean @default(false)
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  passwordResets      PasswordReset[]
-  assignedTasks       Task[]          @relation("AssignedDeveloper")
-  createdTasks        Task[]          @relation("TaskCreator")
-  memberships         ProjectMember[] 
-  projects            Project[]       @relation("ClientProjects")
-  activityLogs        ActivityLog[]   @relation("ActivityPerformer")
-  notifications       Notification[]
-  comments            Comment[]
-  timeLogs            TimeLog[]
-  
-  @@map("users")
-}
-
-model Service {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String 
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-}
-
-model Message {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String
-  content   String
-  createdAt DateTime @default(now())
-}
-
-model Project {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  status      ProjectStatus @default(PENDING)
-  startDate   DateTime?
-  endDate     DateTime?
-  clientName  String
-  clientEmail String
-  clientId    String 
-  client      User          @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
-  budget      Float?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
-  tasks       Task[]
-  members     ProjectMember[]
-  comments    Comment[]
-  timeLogs    TimeLog[]
-  
-  @@map("projects")
-}
-
-model Task {
-  id          String     @id @default(uuid())
-  title       String
-  description String?
-  status      TaskStatus @default(TODO)
-  priority    String     @default("MEDIUM")
-  projectId   String
-  assignedTo  String?
-  createdBy   String   // This is creatorId in your code
-  dueDate     DateTime?
-  estimatedHours Int?
-  actualHours    Int?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee    User?      @relation("AssignedDeveloper", fields: [assignedTo], references: [id], onDelete: SetNull)
-  creator     User       @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  comments    Comment[]
-  timeLogs    TimeLog[]
-  
-  @@map("tasks")
-}
-
-model ProjectMember {
-  id        String   @id @default(uuid())
-  projectId String
-  userId    String
-  role      String   @default("Developer")
-  joinedAt  DateTime @default(now())
-  
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([projectId, userId])
-  @@map("project_members")
-}
-
-//Comment and TimeLog
-model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  taskId    String?
-  projectId String?
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([taskId])
-  @@index([projectId])
-  @@index([userId])
-  @@map("comments")
-}
-
-model TimeLog {
-  id          String   @id @default(uuid())
-  hours       Float
-  description String
-  date        DateTime
-  taskId      String?
-  projectId   String?
-  userId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id])
-
-  @@index([taskId])
-  @@index([projectId])
-  @@index([userId])
-  @@index([date])
-  @@map("time_logs")
-}
-
-model InviteCode {
-  id          String    @id @default(uuid())
-  code        String    @unique
-  role        UserRole
-  createdBy   String    // Admin who created the invite
-  permissions Json?     // For ADMIN invites - store specific permissions
-  used        Boolean   @default(false)
-  usedBy      String?
-  usedAt      DateTime?
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-}
-
-// Activity logging for admin actions
-model ActivityLog {
-  id          String       @id @default(uuid())
-  type        ActivityType
-  performedBy String
-  performer   User         @relation("ActivityPerformer", fields: [performedBy], references: [id], onDelete: Cascade)
-  targetId    String?      // ID of affected resource
-  targetType  String?      // 'user', 'project', 'task'
-  details     Json?        // Additional details about the action
-  ipAddress   String?
-  createdAt   DateTime     @default(now())
-  
-  @@map("activity_logs")
-}
-
-// Notifications for users
-model Notification {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  message     String
-  type        String   // 'task_assigned', 'project_update', 'approval', etc.
-  isRead      Boolean  @default(false)
-  link        String?  // Optional link to related resource
-  createdAt   DateTime @default(now())
-  
-  @@map("notifications")
-}
-
-model PasswordReset {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt])
-  @@index([createdAt])
+enum ContactStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
 }

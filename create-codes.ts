@@ -7,16 +7,20 @@ async function main() {
   const codes = [
     {code: 'SUPERADMINA1', role: 'SUPER_ADMIN' },
     { code: 'ADMINA1', role: 'ADMIN' },
-    { code: 'ADMINA2', role: 'ADMIN' },
     { code: 'DEVEL1', role: 'DEVELOPER' },
-    { code: 'DEVEl2', role: 'DEVELOPER' },
-    { code: 'DEVEl3', role: 'DEVELOPER' },
+    { code: 'DEVEL2', role: 'DEVELOPER' },
+    { code: 'DEVEL3', role: 'DEVELOPER' },
   ];
 
   for (const { code, role } of codes) {
     try {
       await prisma.inviteCode.create({
-        data: { code, role, used: false }
+        data: { 
+          code, 
+          role, 
+          used: false,
+          createdBy: "yasmarfaq@yahoo.com"   
+        }
       });
       console.log(`✅ Created: ${code} (${role})`);
     } catch (error) {

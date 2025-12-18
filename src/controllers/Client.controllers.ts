@@ -502,7 +502,7 @@ export const addProjectComment = asyncHandler(async (req: AuthRequest, res: Resp
   await prisma.activityLog.create({
     data: {
       type: 'PROJECT_UPDATED',
-      performedBy: userId,
+      performedById: userId,
       targetId: id,
       targetType: 'project',
       details: {
@@ -651,7 +651,7 @@ export const addProjectTimeLog = asyncHandler(async (req: AuthRequest, res: Resp
   await prisma.activityLog.create({
     data: {
       type: 'PROJECT_UPDATED',
-      performedBy: userId,
+      performedById: userId,
       targetId: id,
       targetType: 'project',
       details: {

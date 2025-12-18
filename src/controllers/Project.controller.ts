@@ -235,7 +235,7 @@ export const createProject = asyncHandler(async (req: AuthRequest, res: Response
   await prisma.activityLog.create({
     data: {
       type: 'PROJECT_CREATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: project.id,
       targetType: 'project',
       details: { projectName: project.name }
@@ -410,7 +410,7 @@ export const updateProject = asyncHandler(async (req: AuthRequest, res: Response
   await prisma.activityLog.create({
     data: {
       type: 'PROJECT_UPDATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'project',
       details: { updates: Object.keys(updateData) }
@@ -454,7 +454,7 @@ export const updateProjectStatus = asyncHandler(async (req: AuthRequest, res: Re
   await prisma.activityLog.create({
     data: {
       type: 'PROJECT_UPDATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'project',
       details: { 
@@ -524,7 +524,7 @@ export const deleteProject = asyncHandler(async (req: AuthRequest, res: Response
   await prisma.activityLog.create({
     data: {
       type: 'PROJECT_DELETED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'project',
       details: { projectName: project.name }
@@ -592,7 +592,7 @@ export const addProjectMember = asyncHandler(async (req: AuthRequest, res: Respo
   await prisma.activityLog.create({
     data: {
       type: 'USER_UPDATED', // We'll use this as a general activity type
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'project',
       details: { 
@@ -649,7 +649,7 @@ export const removeProjectMember = asyncHandler(async (req: AuthRequest, res: Re
   await prisma.activityLog.create({
     data: {
       type: 'USER_UPDATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'project',
       details: { 

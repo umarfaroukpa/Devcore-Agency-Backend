@@ -18,7 +18,7 @@ transporter.verify((err, success) => {
   else console.log('SMTP Connected →', process.env.SMTP_USER);
 });
 
-// === 2. All Email Templates + Send Function ===
+//2. All Email Templates + Send Function
 interface User {
   email: string;
   firstName?: string;
@@ -40,7 +40,9 @@ export const sendEmail = async (
     | 'welcome-client'
     | 'password-reset'
     | 'project-invite'
-    | 'application-received',
+    | 'application-received'
+    | 'new-contact-inquiry'
+    | 'message-received-client',
   data: any = {}
 ) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -151,8 +153,59 @@ export const sendEmail = async (
       </div>
     </div>
   `,
-}
+},
+
+// 7. message received Notification
+    'message-received-client': {
+  subject: 'Your Message Has Been Received Successfully',
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
+      <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
+        <h2 style="color: #16a34a;">Message Recieved Successful!</h2>
+        <p>Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
+        <p>Your password has been successfully reset.</p>
+        <p style="color: #dc2626; font-weight: bold;">
+          If you did not make this change, please contact support immediately.
+        </p>
+        <a href="${frontendUrl}/profile/security" style="background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px;">
+          Review Security Settings
+        </a>
+      </div>
+    </div>
+  `,
+},
+
+// Customer Contact Enquiry Notification
+'new-contact-inquiry': {
+      subject: `🔔 New Contact Form Inquiry from ${data.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #fef3c7;">
+          <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #fbbf24;">
+            <h2 style="color: #92400e;">🔔 New Contact Form Submission</h2>
+            <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>Name:</strong> ${data.name}</p>
+              <p style="margin: 8px 0;"><strong>Email:</strong> <a href="mailto:${data.email}">${data.email}</a></p>
+              ${data.company ? `<p style="margin: 8px 0;"><strong>Company:</strong> ${data.company}</p>` : ''}
+              ${data.service ? `<p style="margin: 8px 0;"><strong>Service Interest:</strong> ${data.service}</p>` : ''}
+            </div>
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>Message:</strong></p>
+              <p style="color: #374151; white-space: pre-wrap;">${data.message}</p>
+            </div>
+            <a href="${frontendUrl}/dashboard/admin/contacts/${data.messageId}" style="background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+              View in Dashboard
+            </a>
+          </div>
+        </div>
+      `,
+    }
   };
+
+  const template = templates[type];
+  if (!template) {
+    throw new Error(`Email template "${type}" not found`);
+  }
+
 
   const { subject, html } = templates[type];
 

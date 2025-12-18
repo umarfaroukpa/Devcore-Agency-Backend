@@ -1,18 +1,19 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { User } from '@prisma/client'; 
 import bcrypt from 'bcryptjs'; 
 import jwt from 'jsonwebtoken'; 
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
 
-//Helper function to generate JWT
+// Helper function to generate JWT
 const generateToken = (userId: string, role: string) => {
-    return jwt.sign({ id: userId, role: role }, process.env.JWT_SECRET as string, {
-        expiresIn: '1d', // Token expires in 1 day
-    });
+  return jwt.sign(
+    { userId, role }, 
+    process.env.JWT_SECRET as string, 
+    { expiresIn: '7d' }
+  );
 };
 
-//signup controllers
+// POST /api/auth/signup - Register new user
 export const signup = asyncHandler(async (req: Request, res: Response) => {
   const { 
     name, email, password, phone, role, inviteCode,
@@ -34,7 +35,7 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError('Email already registered', 400);
   }
 
-  // ⭐ VERIFY INVITE CODE FOR DEVELOPER/ADMIN/SUPER_ADMIN
+  // Verify invite code for DEVELOPER/ADMIN/SUPER_ADMIN
   if (role === 'DEVELOPER' || role === 'ADMIN' || role === 'SUPER_ADMIN') {
     if (!inviteCode) {
       throw new AppError('Invite code is required for this role', 400);
@@ -104,29 +105,24 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
       githubUsername,
       portfolio,
       isActive: true,
-      // SUPER_ADMIN and CLIENT auto-approved, others need approval
+      // CLIENT and SUPER_ADMIN auto-approved, others need approval
       isApproved: (role === 'CLIENT' || role === 'SUPER_ADMIN') ? true : null,
       ...permissions
     }
   });
 
-  // Generate JWT token
-  const token = jwt.sign(
-    { 
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    },
-    process.env.JWT_SECRET!,
-    { expiresIn: '7d' }
-  );
+  // Generate token (only for auto-approved users)
+  let token = undefined;
+  if (role === 'CLIENT' || role === 'SUPER_ADMIN') {
+    token = generateToken(user.id, user.role);
+  }
 
   res.status(201).json({
     success: true,
-    message: role === 'CLIENT' || role === 'SUPER_ADMIN'
+    message: (role === 'CLIENT' || role === 'SUPER_ADMIN')
       ? 'Account created successfully' 
       : 'Application submitted. You will be notified once approved.',
-    token: (role === 'CLIENT' || role === 'SUPER_ADMIN') ? token : undefined,
+    token,
     user: {
       id: user.id,
       email: user.email,
@@ -138,15 +134,18 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-//login controllers 
+// POST /api/auth/login - Login user
 export const login = async (req: Request, res: Response): Promise<Response> => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Please provide both email and password.' });
-    }
-
     try {
+        if (!email || !password) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Please provide both email and password.' 
+            });
+        }
+
         // 1. Find the user by email
         const user = await prisma.user.findUnique({
             where: { email: email.toLowerCase() },
@@ -174,7 +173,10 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
         });
 
         if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials.' });
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid credentials.' 
+            });
         }
 
         // 2. Check if user is active
@@ -187,9 +189,12 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
         // 3. Compare the provided password with the stored hash
         const isMatch = await bcrypt.compare(password, user.password);
-
+        
         if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid credentials.' });
+            return res.status(401).json({ 
+                success: false,
+                error: 'Invalid credentials.' 
+            });
         }
 
         // 4. Check if user is approved (for DEVELOPER/ADMIN only, SUPER_ADMIN and CLIENT are auto-approved)
@@ -209,31 +214,69 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
             });
         }
     
-        // 5. Generate Token
-        const token = generateToken(user.id, user.role);
+        // 5. Generate Token - FIXED VERSION
+        const token = jwt.sign(
+            { 
+                id: user.id,  // Changed from userId to id
+                email: user.email, 
+                role: user.role 
+            }, 
+            process.env.JWT_SECRET as string, 
+            { expiresIn: '1d' }
+        );
 
-        // 6. Successful Login response with full user data
+        // 6. Remove password from response
+        const { password: _, ...userWithoutPassword } = user;
+
+        // 7. Successful Login response with full user data
         return res.status(200).json({
             success: true,
             message: 'Login successful.',
-            user: { 
-                id: user.id, 
-                email: user.email, 
-                firstName: user.firstName, 
-                lastName: user.lastName, 
-                role: user.role,
-                isApproved: user.isApproved,
-                canApproveUsers: user.canApproveUsers,
-                canDeleteUsers: user.canDeleteUsers,
-                canManageProjects: user.canManageProjects,
-                canAssignTasks: user.canAssignTasks,
-                canViewAllProjects: user.canViewAllProjects
-            },
+            user: userWithoutPassword,
             token: token,
         });
 
-    } catch (error) {
-        console.error("Login error:", error);
-        return res.status(500).json({ error: 'Server error during login.' });
+    } catch (error: any) {
+        console.error("🔴 Login error:", error);
+        console.error("🔴 Error stack:", error.stack);
+        
+        return res.status(500).json({ 
+            success: false,
+            error: 'Server error during login.',
+            message: error.message 
+        });
     }
 };
+
+// POST /api/auth/verify-invite - Verify invite code (public)
+export const verifyInviteCode = asyncHandler(async (req: Request, res: Response) => {
+  const { code } = req.body;
+
+  if (!code) {
+    throw new AppError('Invite code is required', 400);
+  }
+
+  const inviteCode = await prisma.inviteCode.findUnique({
+    where: { code: code.toUpperCase() }
+  });
+
+  if (!inviteCode) {
+    throw new AppError('Invalid invite code', 404);
+  }
+
+  if (inviteCode.used) {
+    throw new AppError('This invite code has already been used', 400);
+  }
+
+  if (inviteCode.expiresAt && inviteCode.expiresAt < new Date()) {
+    throw new AppError('This invite code has expired', 400);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Invite code is valid',
+    data: {
+      role: inviteCode.role
+    }
+  });
+});

@@ -14,17 +14,23 @@ const hasPermission = (user: any, permission: string) => {
 
 // Log admin activity
 const logActivity = async (
-  performedBy: string,
+  performedById: string,
   type: ActivityType,
   targetId?: string,
   targetType?: string,
   details?: any,
   ipAddress?: string
 ) => {
+
+  // Check if we have a valid performer ID
+  if (!performedById) {
+    console.warn('No performer ID provided for activity log');
+    return; // Skip logging if no performer
+  }
   await prisma.activityLog.create({
     data: {
       type,
-      performedBy,
+      performedById,
       targetId,
       targetType,
       details,
@@ -330,38 +336,57 @@ export const approveUser = asyncHandler(async (req: Request, res: Response) => {
 // GET /api/admin/activity - Get activity logs
 export const getActivityLogs = asyncHandler(async (req: Request, res: Response) => {
   const currentUser = (req as any).user;
-  const { limit = 50, type } = req.query;
 
   // Only SUPER_ADMIN can view all activity logs
-  if (!isSuperAdmin(currentUser)) {
+  if (currentUser.role !== 'SUPER_ADMIN') {
     throw new AppError('Only Super Admins can view activity logs', 403);
   }
+
+  // Parse and validate limit parameter with better error handling
+  let limit = 50; // default
+  if (req.query.limit) {
+    const parsedLimit = parseInt(req.query.limit as string, 10);
+    if (isNaN(parsedLimit)) {
+      throw new AppError('Limit parameter must be a valid number', 400);
+    }
+    if (parsedLimit < 1 || parsedLimit > 100) {
+      throw new AppError('Limit parameter must be between 1 and 100', 400);
+    }
+    limit = parsedLimit;
+  }
+
+  const type = req.query.type as string | undefined;
 
   const where: any = {};
   if (type) where.type = type;
 
-  const logs = await prisma.activityLog.findMany({
-    where,
-    include: {
-      performer: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          role: true
+  try {
+    const logs = await prisma.activityLog.findMany({
+      where,
+      include: {
+        performer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
         }
-      }
-    },
-    orderBy: { createdAt: 'desc' },
-    take: Number(limit)
-  });
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit
+    });
 
-  res.status(200).json({
-    success: true,
-    count: logs.length,
-    data: logs
-  });
+    res.status(200).json({
+      success: true,
+      count: logs.length,
+      data: logs
+    });
+  } catch (error) {
+    console.error('Error fetching activity logs:', error);
+    throw new AppError('Failed to fetch activity logs', 500);
+  }
 });
 
 // GET /api/admin/stats - Dashboard statistics
@@ -432,5 +457,88 @@ export const getPendingUsers = asyncHandler(async (req: Request, res: Response) 
     success: true,
     count: pendingUsers.length,
     data: pendingUsers
+  });
+});
+
+// PATCH /api/admin/users/:id/reject - Reject user
+export const rejectUser = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const currentUser = (req as any).user;
+
+  if (!reason || !reason.trim()) {
+    throw new AppError('Please provide a reason for rejection', 400);
+  }
+
+  // Check if user has permission
+  if (!hasPermission(currentUser, 'canApproveUsers')) {
+    throw new AppError('You do not have permission to reject users', 403);
+  }
+
+  const existingUser = await prisma.user.findUnique({ where: { id } });
+
+  if (!existingUser) {
+    throw new AppError('User not found', 404);
+  }
+
+  if (existingUser.isApproved === false) {
+    throw new AppError('User is already rejected', 400);
+  }
+
+  const user = await prisma.user.update({
+    where: { id },
+    data: {
+      isApproved: false,
+      isActive: false,
+      approvedAt: new Date(),
+      approvedBy: currentUser.id || currentUser.userId
+    },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      firstName: true,
+      lastName: true,
+      isApproved: true,
+      isActive: true
+    }
+  });
+
+  // Create notification
+  try {
+    await prisma.notification.create({
+      data: {
+        userId: id,
+        title: 'Application Rejected',
+        message: `Your application has been rejected. Reason: ${reason}`,
+        type: 'approval'
+      }
+    });
+  } catch (notifError) {
+    console.error('❌ Error creating notification:', notifError);
+  }
+
+  // Log activity
+  const performerId = currentUser.id || currentUser.userId;
+  if (performerId) {
+    await logActivity(
+      performerId,
+      'USER_UPDATED',
+      id,
+      'user',
+      { 
+        action: 'rejected', 
+        reason, 
+        email: user.email, 
+        role: user.role 
+      },
+      req.ip
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'User rejected successfully',
+    data: user
   });
 });

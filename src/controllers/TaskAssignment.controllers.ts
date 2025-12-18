@@ -70,35 +70,45 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Create task
-  const task = await prisma.task.create({
-    data: {
-      title,
-      description,
-      projectId,
-      assignedTo,
-      createdBy: currentUser.userId,
-      priority,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      estimatedHours
-    },
-    include: {
-      assignee: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true
+      const task = await prisma.task.create({
+      data: {
+        title,
+        description,
+        project: {
+          connect: { id: projectId }
+        },
+        assignee: assignedTo ? { connect: { id: assignedTo } } : null,  // ← Fixed!
+        priority,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        estimatedHours,
+        creator: {
+          connect: { id: currentUser.id }
         }
       },
-      project: {
-        select: {
-          id: true,
-          name: true
+      include: {
+        assignee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        project: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
         }
       }
-    }
-  });
-
+    });
   // Create notification for assignee
   if (assignedTo) {
     await prisma.notification.create({
@@ -112,20 +122,23 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
+  
   // Log activity
-  await prisma.activityLog.create({
-    data: {
-      type: 'TASK_CREATED',
-      performedBy: currentUser.userId,
-      targetId: task.id,
-      targetType: 'task',
-      details: {
-        title,
-        projectId,
-        assignedTo
-      }
+await prisma.activityLog.create({
+  data: {
+    type: 'TASK_CREATED',
+    performer: {
+      connect: { id: currentUser.id }
+    },
+    targetId: task.id,
+    targetType: 'task',
+    details: {
+      title,
+      projectId,
+      assignedTo
     }
-  });
+  }
+});
 
   res.status(201).json({
     success: true,
@@ -207,7 +220,7 @@ export const assignTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_ASSIGNED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'task',
       details: {
@@ -375,7 +388,7 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_UPDATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'task',
       details: { updates: Object.keys(updates) }
@@ -472,7 +485,7 @@ export const deleteTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_DELETED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'task',
       details: { title: task.title }

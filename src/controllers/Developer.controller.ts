@@ -21,8 +21,7 @@ interface AuthRequest extends Request {
 
 // GET /api/dev/tasks - Fetch developer tasks
 export const getDeveloperTasks = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const developerId = req.user?.id;  // Changed from userId to id
-
+  const developerId = req.user?.id;  
   if (!developerId) {
     throw new AppError('User not authenticated', 401);
   }
@@ -79,7 +78,7 @@ export const getDeveloperTasks = asyncHandler(async (req: AuthRequest, res: Resp
 // GET /api/dev/tasks/:id - Get task details
 export const getTaskById = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const developerId = req.user?.id;  // Changed from userId to id
+  const developerId = req.user?.id;  
 
   const task = await prisma.task.findFirst({
     where: {
@@ -120,8 +119,7 @@ export const getTaskById = asyncHandler(async (req: AuthRequest, res: Response) 
 export const updateTaskStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
-  const developerId = req.user?.id;  // Changed from userId to id
-
+  const developerId = req.user?.id;  
   const validStatuses = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
   if (!validStatuses.includes(status)) {
     throw new AppError('Invalid status', 400);
@@ -193,7 +191,7 @@ export const deployTool = asyncHandler(async (req: AuthRequest, res: Response) =
     await prisma.activityLog.create({
       data: {
         type: 'TASK_UPDATED', 
-        performedBy: developerId,
+        performedById: developerId,
         targetType: 'deployment',
         details: {
           action: 'deploy',
@@ -219,7 +217,7 @@ export const deployTool = asyncHandler(async (req: AuthRequest, res: Response) =
     await prisma.activityLog.create({
       data: {
         type: 'TASK_UPDATED',
-        performedBy: developerId,
+        performedById: developerId,
         targetType: 'deployment',
         details: {
           action: 'deploy',
@@ -278,7 +276,7 @@ export const viewLogs = asyncHandler(async (req: AuthRequest, res: Response) => 
 
 // GET /api/dev/stats - Developer statistics
 export const getDeveloperStats = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const developerId = req.user?.id;  // Changed from userId to id
+  const developerId = req.user?.id;  
 
   const [
     totalTasks,
@@ -392,7 +390,7 @@ export const addTaskComment = asyncHandler(async (req: AuthRequest, res: Respons
   await prisma.activityLog.create({
     data: {
       type: 'TASK_UPDATED',
-      performedBy: developerId,
+      performedById: developerId,
       targetId: id,
       targetType: 'task',
       details: {
@@ -510,7 +508,7 @@ export const addTimeLog = asyncHandler(async (req: AuthRequest, res: Response) =
   await prisma.activityLog.create({
     data: {
       type: 'TASK_UPDATED',
-      performedBy: developerId,
+      performedById: developerId,
       targetId: id,
       targetType: 'task',
       details: {

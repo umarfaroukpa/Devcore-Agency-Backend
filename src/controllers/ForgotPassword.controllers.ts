@@ -91,7 +91,7 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
     await prisma.activityLog.create({
       data: {
         type: 'USER_UPDATED', // Using existing enum value
-        performedBy: user.id,
+        performedById: user.id,
         targetId: user.id,
         targetType: 'user',
         details: { 
@@ -248,7 +248,7 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
     await tx.activityLog.create({
       data: {
         type: 'USER_UPDATED', // Using existing enum value
-        performedBy: resetToken.userId,
+        performedById: resetToken.userId,
         targetId: resetToken.userId,
         targetType: 'user',
         details: { 

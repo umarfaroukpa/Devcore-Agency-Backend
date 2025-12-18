@@ -116,7 +116,7 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_CREATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: task.id,
       targetType: 'task',
       details: {
@@ -207,7 +207,7 @@ export const assignTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_ASSIGNED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'task',
       details: {
@@ -375,7 +375,7 @@ export const updateTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_UPDATED',
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'task',
       details: { updates: Object.keys(updates) }
@@ -473,7 +473,7 @@ export const deleteTask = asyncHandler(async (req: Request, res: Response) => {
   await prisma.activityLog.create({
     data: {
       type: 'TASK_DELETED' as any,
-      performedBy: currentUser.userId,
+      performedById: currentUser.userId,
       targetId: id,
       targetType: 'task',
       details: { title: task.title }

@@ -1,13 +1,18 @@
 import { Router } from 'express';
-import { submitContactForm, getSubmissions } from '../controllers/Contacts.controllers';
-import { restrictTo, authenticate } from '../middleware/Auth.middleware';
+import { authenticate, restrictTo } from '../middleware/Auth.middleware';
+import { submitContactForm,  getContactMessages, getContactMessageById, updateContactMessageStatus, deleteContactMessage} from '../controllers/Contacts.controllers';
+  
+const contactRouter = Router();
 
-const router = Router();
+// Public route - anyone can submit
+contactRouter.post('/', submitContactForm);
 
-// Public route for form submission
-router.post('/', submitContactForm);
+// Protected routes - admin only
+contactRouter.use(authenticate, restrictTo(['ADMIN', 'SUPER_ADMIN']));
 
-// Protected route for admins/managers to view submissions
-router.get('/submissions', authenticate, restrictTo(['admin', 'manager']), getSubmissions);
+contactRouter.get('/', getContactMessages);
+contactRouter.get('/:id', getContactMessageById);
+contactRouter.patch('/:id', updateContactMessageStatus);
+contactRouter.delete('/:id', deleteContactMessage);
 
-export default router;
+export default contactRouter;
