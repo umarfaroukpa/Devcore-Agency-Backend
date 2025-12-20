@@ -19,7 +19,7 @@ export const submitContactForm = asyncHandler(async (req: Request, res: Response
   }
 
   try {
-    // Save contact message to database (optional but recommended)
+    // Save contact message to database 
     const contactMessage = await prisma.contactMessage.create({
       data: {
         name,
@@ -45,7 +45,8 @@ export const submitContactForm = asyncHandler(async (req: Request, res: Response
         company,
         service,
         message,
-        messageId: contactMessage.id
+        messageId: contactMessage.id, 
+        dashboardUrl: `${process.env.FRONTEND_URL}/dashboard/admin/contact/${contactMessage.id}`
       });
     }
 
