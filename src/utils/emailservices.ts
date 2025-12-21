@@ -70,7 +70,7 @@ export const sendEmail = async (
 
     // 2. Welcome Client
     'welcome-client': {
-      subject: 'Welcome to Devcore – Let’s Build Something Amazing',
+      subject: 'Welcome to Devcore  Lets Build Something Amazing',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
           <div style="background: white; color: #1f2937; padding: 40px; border-radius: 12px; margin-top: 20px; text-align: center;">
@@ -192,7 +192,7 @@ export const sendEmail = async (
               <p style="margin: 0;"><strong>Message:</strong></p>
               <p style="color: #374151; white-space: pre-wrap;">${data.message}</p>
             </div>
-            <a href="${frontendUrl}/dashboard/admin/contacts/${data.messageId}" style="background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            <a href="${frontendUrl}/dashboard/admin/contact/${data.messageId}" style="background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               View in Dashboard
             </a>
           </div>
