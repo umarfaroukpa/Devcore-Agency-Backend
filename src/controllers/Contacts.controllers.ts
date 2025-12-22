@@ -168,3 +168,59 @@ export const deleteContactMessage = asyncHandler(async (req: Request, res: Respo
     message: 'Contact message deleted'
   });
 });
+
+// POST /api/contact/:id/reply - Send email reply to contact
+export const replyToContact = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { message, subject } = req.body;
+
+  if (!message?.trim()) {
+    throw new AppError('Reply message is required', 400);
+  }
+
+  // Get the contact message
+  const contact = await prisma.contactMessage.findUnique({
+    where: { id }
+  });
+
+  if (!contact) {
+    throw new AppError('Contact message not found', 404);
+  }
+
+  try {
+    // Send the email reply
+    await sendEmail(contact.email, 'reply-to-contact', {
+      subject: subject || `Re: Your Inquiry`,
+      replyMessage: message,
+      originalMessage: contact.message.substring(0, 200) + '...', // Preview of original
+      replyFrom: `Devcore Support Team`,
+      contactName: contact.name,
+      dashboardUrl: `${process.env.FRONTEND_URL}/dashboard/admin/contact/${contact.id}`
+    });
+
+    // Update the contact status and add notes
+    const updatedContact = await prisma.contactMessage.update({
+      where: { id },
+      data: {
+        status: 'REPLIED',
+        notes: contact.notes 
+          ? `${contact.notes}\n\nReplied on ${new Date().toLocaleString()}:\n${message}`
+          : `Replied on ${new Date().toLocaleString()}:\n${message}`
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Reply sent successfully',
+      data: {
+        id: updatedContact.id,
+        status: updatedContact.status,
+        repliedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error sending reply:', error);
+    throw new AppError('Failed to send reply. Please try again.', 500);
+  }
+});

@@ -42,7 +42,8 @@ export const sendEmail = async (
     | 'project-invite'
     | 'application-received'
     | 'new-contact-inquiry'
-    | 'message-received-client',
+    | 'message-received-client'
+    | 'reply-to-contact',
   data: any = {}
 ) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -163,7 +164,7 @@ export const sendEmail = async (
       <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
         <h2 style="color: #16a34a;">Message Recieved Successful!</h2>
         <p>Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
-        <p>Your password has been successfully reset.</p>
+        <p></p>
         <p style="color: #dc2626; font-weight: bold;">
           If you did not make this change, please contact support immediately.
         </p>
@@ -198,7 +199,46 @@ export const sendEmail = async (
           </div>
         </div>
       `,
-    }
+    },
+
+    // Add to your templates object
+'reply-to-contact': {
+  subject: `Re: Your Inquiry - ${data.subject || 'Devcore'}`,
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f8fafc;">
+      <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #e2e8f0;">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+          <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <span style="color: white; font-weight: bold; font-size: 20px;">D</span>
+          </div>
+          <div>
+            <h2 style="margin: 0; color: #1e293b;">Devcore Support Team</h2>
+            <p style="margin: 5px 0 0; color: #64748b;">${data.replyFrom || 'Devcore Customer Support'}</p>
+          </div>
+        </div>
+        
+        <div style="border-left: 4px solid #6366f1; padding-left: 20px; margin: 30px 0;">
+          <p style="color: #64748b; margin: 5px 0;"><strong>Original Message:</strong></p>
+          <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 10px 0; font-style: italic; color: #475569;">
+            "${data.originalMessage}"
+          </div>
+        </div>
+        
+        <div style="margin: 30px 0;">
+          <p style="color: #1e293b; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${data.replyMessage}</p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #64748b; margin: 5px 0;"><strong>Best regards,</strong></p>
+          <p style="color: #1e293b; margin: 5px 0;">${data.replyFrom || 'Devcore Support Team'}</p>
+          <p style="color: #64748b; margin: 5px 0;">
+            <a href="${process.env.FRONTEND_URL}" style="color: #6366f1; text-decoration: none;">${process.env.FRONTEND_URL}</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `,
+}
   };
 
   const template = templates[type];
