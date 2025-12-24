@@ -77,7 +77,7 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
         project: {
           connect: { id: projectId }
         },
-        assignee: assignedTo ? { connect: { id: assignedTo } } : null,  // ← Fixed!
+        assignee: assignedTo ? { connect: { id: assignedTo } } : null,  
         priority,
         dueDate: dueDate ? new Date(dueDate) : null,
         estimatedHours,

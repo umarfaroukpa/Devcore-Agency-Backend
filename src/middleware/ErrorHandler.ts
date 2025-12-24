@@ -10,7 +10,6 @@ interface ErrorResponse {
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
-  message: string;
 
   constructor(message: string, statusCode: number = 500) {
     super(message);
