@@ -1,20 +1,12 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
+import { AuthRequest } from '../types/auth.types';
 
-interface AuthRequest extends Request {
- user?: {
-    id: string;
-    role: string;
-    email: string;
-    firstName?: string; 
-    lastName?: string;
-    isActive?: boolean;
- };
-}
+
 
 // GET /api/clients - Get all clients (Admin/Manager only)
-export const getAllClients = asyncHandler(async (req: Request, res: Response) => {
+export const getAllClients = asyncHandler(async (req: AuthRequest, res: Response) => {
  const { search, industry } = req.query;
 
   const where: any = {
@@ -69,7 +61,7 @@ const clients = await prisma.user.findMany({
 });
 
 // GET /api/clients/:id - Get client details
-export const getClientDetails = asyncHandler(async (req: Request, res: Response) => {
+export const getClientDetails = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
     const client = await prisma.user.findFirst({
@@ -130,7 +122,7 @@ export const getClientDetails = asyncHandler(async (req: Request, res: Response)
 });
 
 //api/clients/:id/role - Update client role
-export const updateClientRole = asyncHandler(async (req: Request, res: Response) => {
+export const updateClientRole = asyncHandler(async (req: AuthRequest, res: Response) => {
  const { id } = req.params;
  const { role } = req.body;
 

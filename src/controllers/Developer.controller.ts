@@ -5,19 +5,9 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import { AuthRequest } from '../types/auth.types';
 
 const execAsync = promisify(exec);
-
-interface AuthRequest extends Request {
-  user?: {
-    id: string;  
-    role: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    isActive?: boolean;
-  };
-}
 
 // GET /api/dev/tasks - Fetch developer tasks
 export const getDeveloperTasks = asyncHandler(async (req: AuthRequest, res: Response) => {

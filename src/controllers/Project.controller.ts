@@ -1,18 +1,13 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
+import { AuthRequest } from '../types/auth.types';
 
-interface AuthRequest extends Request { 
-  userId?: string; 
-  user?: {
-    userId: string;
-    role: string;
-  };
-}
+
 
 // Get projects for the logged-in client
 export const getMyProjects = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const clientId = req.userId;
+  const clientId = req.user?.userId;
   
   const projects = await prisma.project.findMany({
     where: { clientId: clientId },
@@ -40,7 +35,7 @@ export const getMyProjects = asyncHandler(async (req: AuthRequest, res: Response
 });
 
 // Get ALL projects (for ADMIN/SUPER_ADMIN dashboard)
-export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
+export const getAllProjects = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status, search, clientId, page = 1, limit = 20 } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
   
@@ -107,7 +102,7 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
 });
 
 // Get project statistics for admin dashboard
-export const getProjectStats = asyncHandler(async (req: Request, res: Response) => {
+export const getProjectStats = asyncHandler(async (req: AuthRequest, res: Response) => {
   const [
     totalProjects,
     pendingProjects,

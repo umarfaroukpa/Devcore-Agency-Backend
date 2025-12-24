@@ -1,14 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
+import { AuthRequest } from '../types/auth.types';
 
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-  };
-}
+
 
 // GET /api/notifications
 export const getNotifications = asyncHandler(async (req: AuthRequest, res: Response) => {

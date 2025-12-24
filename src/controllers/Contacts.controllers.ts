@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
 import { sendEmail } from '../utils/emailservices';
 import prisma from '../config/prisma';
+import { AuthRequest } from '../types/auth.types';
 
 // POST /api/contact - Handle contact form submissions
-export const submitContactForm = asyncHandler(async (req: Request, res: Response) => {
+export const submitContactForm = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { name, email, company, service, message } = req.body;
 
   // Validate required fields
@@ -72,7 +73,7 @@ export const submitContactForm = asyncHandler(async (req: Request, res: Response
 });
 
 // GET /api/contact - Get all contact messages (Admin only)
-export const getContactMessages = asyncHandler(async (req: Request, res: Response) => {
+export const getContactMessages = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status, limit = 50, page = 1 } = req.query;
 
   const where: any = {};
@@ -105,7 +106,7 @@ export const getContactMessages = asyncHandler(async (req: Request, res: Respons
 });
 
 // GET /api/contact/:id - Get single contact message
-export const getContactMessageById = asyncHandler(async (req: Request, res: Response) => {
+export const getContactMessageById = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   const message = await prisma.contactMessage.findUnique({
@@ -131,7 +132,7 @@ export const getContactMessageById = asyncHandler(async (req: Request, res: Resp
 });
 
 // PATCH /api/contact/:id - Update contact message status
-export const updateContactMessageStatus = asyncHandler(async (req: Request, res: Response) => {
+export const updateContactMessageStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { status, notes } = req.body;
 
@@ -156,7 +157,7 @@ export const updateContactMessageStatus = asyncHandler(async (req: Request, res:
 });
 
 // DELETE /api/contact/:id - Delete contact message
-export const deleteContactMessage = asyncHandler(async (req: Request, res: Response) => {
+export const deleteContactMessage = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   await prisma.contactMessage.delete({
@@ -170,7 +171,7 @@ export const deleteContactMessage = asyncHandler(async (req: Request, res: Respo
 });
 
 // POST /api/contact/:id/reply - Send email reply to contact
-export const replyToContact = asyncHandler(async (req: Request, res: Response) => {
+export const replyToContact = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { message, subject } = req.body;
 

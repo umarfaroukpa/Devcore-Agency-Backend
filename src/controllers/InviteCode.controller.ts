@@ -2,14 +2,9 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { asyncHandler, AppError } from '../middleware/ErrorHandler';
 import crypto from 'crypto';
+import { AuthRequest } from '../types/auth.types';
 
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-    email: string;
-  };
-}
+
 
 // Generate a random invite code
 const generateInviteCode = (): string => {
@@ -53,7 +48,7 @@ export const createInviteCode = asyncHandler(async (req: AuthRequest, res: Respo
 });
 
 // GET /api/admin/invite-codes - Get all invite codes (Admin only)
-export const getAllInviteCodes = asyncHandler(async (req: Request, res: Response) => {
+export const getAllInviteCodes = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status, role } = req.query;
 
   const where: any = {};
@@ -88,7 +83,7 @@ export const getAllInviteCodes = asyncHandler(async (req: Request, res: Response
 });
 
 // POST /api/auth/verify-invite - Verify invite code (Public)
-export const verifyInviteCode = asyncHandler(async (req: Request, res: Response) => {
+export const verifyInviteCode = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { code } = req.body;
 
   if (!code) {
@@ -122,7 +117,7 @@ export const verifyInviteCode = asyncHandler(async (req: Request, res: Response)
 
 
 // DELETE /api/admin/invite-codes/:id - Delete invite code (Admin only)
-export const deleteInviteCode = asyncHandler(async (req: Request, res: Response) => {
+export const deleteInviteCode = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   const inviteCode = await prisma.inviteCode.findUnique({
