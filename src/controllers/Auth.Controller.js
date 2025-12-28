@@ -1,0 +1,239 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.verifyInviteCode = exports.login = exports.signup = void 0;
+const prisma_1 = __importDefault(require("../config/prisma"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const ErrorHandler_1 = require("../middleware/ErrorHandler");
+// Helper function to generate JWT
+const generateToken = (userId, role) => {
+    return jsonwebtoken_1.default.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+};
+// POST /api/auth/signup - Register new user
+exports.signup = (0, ErrorHandler_1.asyncHandler)(async (req, res) => {
+    const { name, email, password, phone, role, inviteCode, companyName, industry, position, skills, experience, githubUsername, portfolio } = req.body;
+    // Validation
+    if (!name || !email || !password) {
+        throw new ErrorHandler_1.AppError('Name, email and password are required', 400);
+    }
+    // Check if user exists
+    const existingUser = await prisma_1.default.user.findUnique({
+        where: { email: email.toLowerCase() }
+    });
+    if (existingUser) {
+        throw new ErrorHandler_1.AppError('Email already registered', 400);
+    }
+    // Verify invite code for DEVELOPER/ADMIN/SUPER_ADMIN
+    if (role === 'DEVELOPER' || role === 'ADMIN' || role === 'SUPER_ADMIN') {
+        if (!inviteCode) {
+            throw new ErrorHandler_1.AppError('Invite code is required for this role', 400);
+        }
+        const invite = await prisma_1.default.inviteCode.findUnique({
+            where: { code: inviteCode.toUpperCase() }
+        });
+        if (!invite) {
+            throw new ErrorHandler_1.AppError('Invalid invite code', 400);
+        }
+        if (invite.used) {
+            throw new ErrorHandler_1.AppError('This invite code has already been used', 400);
+        }
+        if (invite.expiresAt && invite.expiresAt < new Date()) {
+            throw new ErrorHandler_1.AppError('This invite code has expired', 400);
+        }
+        if (invite.role !== role) {
+            throw new ErrorHandler_1.AppError(`This invite code is for ${invite.role} role only`, 400);
+        }
+        // Mark invite code as used
+        await prisma_1.default.inviteCode.update({
+            where: { code: inviteCode.toUpperCase() },
+            data: {
+                used: true,
+                usedBy: email,
+                usedAt: new Date()
+            }
+        });
+    }
+    // Hash password
+    const hashedPassword = await bcryptjs_1.default.hash(password, 12);
+    // Split name into first and last
+    const [firstName, ...lastNameParts] = name.split(' ');
+    const lastName = lastNameParts.join(' ');
+    // Determine permissions based on role
+    const permissions = {
+        canApproveUsers: role === 'SUPER_ADMIN',
+        canDeleteUsers: role === 'SUPER_ADMIN',
+        canManageProjects: role === 'SUPER_ADMIN' || role === 'ADMIN',
+        canAssignTasks: role === 'SUPER_ADMIN' || role === 'ADMIN',
+        canViewAllProjects: role === 'SUPER_ADMIN'
+    };
+    // Create user
+    const user = await prisma_1.default.user.create({
+        data: {
+            email: email.toLowerCase(),
+            password: hashedPassword,
+            firstName,
+            lastName: lastName || undefined,
+            phone,
+            role: role || 'CLIENT',
+            companyName,
+            industry,
+            position,
+            skills: skills ? JSON.stringify(skills) : undefined,
+            experience,
+            githubUsername,
+            portfolio,
+            isActive: true,
+            // CLIENT and SUPER_ADMIN auto-approved, others need approval
+            isApproved: (role === 'CLIENT' || role === 'SUPER_ADMIN') ? true : null,
+            ...permissions
+        }
+    });
+    // Generate token (only for auto-approved users)
+    let token = undefined;
+    if (role === 'CLIENT' || role === 'SUPER_ADMIN') {
+        token = generateToken(user.id, user.role);
+    }
+    res.status(201).json({
+        success: true,
+        message: (role === 'CLIENT' || role === 'SUPER_ADMIN')
+            ? 'Account created successfully'
+            : 'Application submitted. You will be notified once approved.',
+        token,
+        user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            isApproved: user.isApproved
+        }
+    });
+});
+// POST /api/auth/login - Login user
+const login = async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Please provide both email and password.'
+            });
+        }
+        // 1. Find the user by email
+        const user = await prisma_1.default.user.findUnique({
+            where: { email: email.toLowerCase() },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                isActive: true,
+                isApproved: true,
+                companyName: true,
+                industry: true,
+                position: true,
+                githubUsername: true,
+                portfolio: true,
+                experience: true,
+                canApproveUsers: true,
+                canDeleteUsers: true,
+                canManageProjects: true,
+                canAssignTasks: true,
+                canViewAllProjects: true
+            }
+        });
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials.'
+            });
+        }
+        // 2. Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account has been deactivated. Please contact support.'
+            });
+        }
+        // 3. Compare the provided password with the stored hash
+        const isMatch = await bcryptjs_1.default.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials.'
+            });
+        }
+        // 4. Check if user is approved (for DEVELOPER/ADMIN only, SUPER_ADMIN and CLIENT are auto-approved)
+        if (user.role !== 'CLIENT' && user.role !== 'SUPER_ADMIN' && user.isApproved !== true) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account is pending approval',
+                needsApproval: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    isApproved: user.isApproved
+                }
+            });
+        }
+        // 5. Generate Token - FIXED VERSION
+        const token = jsonwebtoken_1.default.sign({
+            id: user.id, // Changed from userId to id
+            email: user.email,
+            role: user.role
+        }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        // 6. Remove password from response
+        const { password: _, ...userWithoutPassword } = user;
+        // 7. Successful Login response with full user data
+        return res.status(200).json({
+            success: true,
+            message: 'Login successful.',
+            user: userWithoutPassword,
+            token: token,
+        });
+    }
+    catch (error) {
+        console.error("🔴 Login error:", error);
+        console.error("🔴 Error stack:", error.stack);
+        return res.status(500).json({
+            success: false,
+            error: 'Server error during login.',
+            message: error.message
+        });
+    }
+};
+exports.login = login;
+// POST /api/auth/verify-invite - Verify invite code (public)
+exports.verifyInviteCode = (0, ErrorHandler_1.asyncHandler)(async (req, res) => {
+    const { code } = req.body;
+    if (!code) {
+        throw new ErrorHandler_1.AppError('Invite code is required', 400);
+    }
+    const inviteCode = await prisma_1.default.inviteCode.findUnique({
+        where: { code: code.toUpperCase() }
+    });
+    if (!inviteCode) {
+        throw new ErrorHandler_1.AppError('Invalid invite code', 404);
+    }
+    if (inviteCode.used) {
+        throw new ErrorHandler_1.AppError('This invite code has already been used', 400);
+    }
+    if (inviteCode.expiresAt && inviteCode.expiresAt < new Date()) {
+        throw new ErrorHandler_1.AppError('This invite code has expired', 400);
+    }
+    res.status(200).json({
+        success: true,
+        message: 'Invite code is valid',
+        data: {
+            role: inviteCode.role
+        }
+    });
+});

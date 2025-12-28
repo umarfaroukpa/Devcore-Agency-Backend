@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import 'dotenv/config'; 
+import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import prisma from './config/prisma';
 import {errorHandler, notFoundHandler}  from './middleware/ErrorHandler';
@@ -20,35 +21,51 @@ import reportRouter from './routes/ReportRoutes';
 import forgotPasswordRoutes from './routes/ForgotPasswordRoutes';
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 10000;
 
 
-// Set up allowed origins for CORS
-const allowedOrigins = [
-  'http://localhost:3000', 
-  'http://localhost:5000', 
-  'http://localhost:3001',
-];
+// Set up to allowed origins for CORS
+const corsOptions = {
+  origin: (origin: string | undefined, callback: Function) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5000',
+      'https://agency-frontend-snowy.vercel.app',
+      'https://devcore-backend.onrender.com',
+  
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.log(' Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
 
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: 'Too many requests from this IP'
+});
+
+app.use(cors(corsOptions));
 
 // Middleware
-app.use(helmet({
+app.use(apiLimiter, helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS Configuration 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'Cache-Control', 
-    'X-Requested-With'
-  ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
-}));
+
 
 app.use(express.json()); 
 app.use('/uploads', express.static('uploads'));
