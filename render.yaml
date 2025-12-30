@@ -10,7 +10,7 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: postgresql://devcore_user:U7JgJOZDty1TIVQtoVq4Xa5JwYh7vQLG@dpg-d56091ngi27c73drvfq0-a.oregon-postgres.render.com/devcore?sslmode=require&connection_limit=5&pool_timeout=10
+        value: postgresql://devcore_user:U7JgJOZDty1TIVQtoVq4Xa5JwYh7vQLG@dpg-d56091ngi27c73drvfq0-a-pooler.oregon-postgres.render.com/devcore?pgbouncer=true&connection_limit=1
       - key: DIRECT_DATABASE_URL
-        value: postgresql://devcore_user:U7JgJOZDty1TIVQtoVq4Xa5JwYh7vQLG@dpg-d56091ngi27c73drvfq0-a.oregon-postgres.render.com/devcore?sslmode=require
+        value: postgresql://devcore_user:U7JgJOZDty1TIVQtoVq4Xa5JwYh7vQLG@dpg-d56091ngi27c73drvfq0-a-pooler.oregon-postgres.render.com/devcore?pgbouncer=true
     plan: free

@@ -11,21 +11,16 @@ const prisma = globalForPrisma.prisma || new PrismaClient({
   log: process.env.NODE_ENV === 'development' 
     ? ['query', 'error', 'warn'] 
     : ['error'],
+  // Disable features not compatible with PgBouncer transaction mode
+  transactionOptions: {
+    maxWait: 2000, // 2 seconds max wait
+    timeout: 5000, // 5 seconds timeout
+  },
 });
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
-// Graceful connection handling
-prisma.$connect()
-  .then(() => {
-    console.log('✅ Database connected successfully');
-  })
-  .catch((err) => {
-    console.error('❌ Failed to connect to database:', err);
-    // Don't exit immediately, let retry logic handle it
-  });
-
-// Handle disconnection
+// Handle disconnection gracefully
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
