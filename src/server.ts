@@ -133,9 +133,28 @@ process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
 
-// START SERVER
-app.listen(port, () => {
-  console.log(`🚀 Server running on port ${port}`);
-  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Set ✅' : '⚠️ NOT SET'}`);
+const connectWithRetry = async (retries = 5, delay = 3000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await prisma.$connect();
+      console.log('✅ Database connected successfully');
+      return;
+    } catch (err) {
+      console.error(`❌ Database connection attempt ${i + 1} failed:`, err);
+      if (i < retries - 1) {
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  console.error('❌ Failed to connect to database after all retries');
+};
+
+// Call before starting server
+connectWithRetry().then(() => {
+  app.listen(port, () => {
+    console.log(`🚀 Server running on port ${port}`);
+    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Set ✅' : '⚠️ NOT SET'}`);
+  });
 });
