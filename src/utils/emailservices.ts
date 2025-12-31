@@ -9,13 +9,25 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD, 
   },
-  tls: { rejectUnauthorized: false },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
+  tls: { 
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2'
+  },
+  pool: true, // Use connection pooling
+  maxConnections: 5,
+  maxMessages: 100,
 });
 
-// Test connection on startup
+// Test connection on startup (don't block if it fails)
 transporter.verify((err, success) => {
-  if (err) console.error('SMTP Error:', err);
-  else console.log('SMTP Connected →', process.env.SMTP_USER);
+  if (err) {
+    console.error('⚠️ SMTP Error:', err.message);
+  } else {
+    console.log('✅ SMTP Connected →', process.env.SMTP_USER);
+  }
 });
 
 //2. All Email Templates + Send Function
@@ -43,7 +55,8 @@ export const sendEmail = async (
     | 'application-received'
     | 'new-contact-inquiry'
     | 'message-received-client'
-    | 'reply-to-contact',
+    | 'reply-to-contact'
+    | 'password-reset-success',
   data: any = {}
 ) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -71,7 +84,7 @@ export const sendEmail = async (
 
     // 2. Welcome Client
     'welcome-client': {
-      subject: 'Welcome to Devcore  Lets Build Something Amazing',
+      subject: 'Welcome to Devcore – Lets Build Something Amazing',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
           <div style="background: white; color: #1f2937; padding: 40px; border-radius: 12px; margin-top: 20px; text-align: center;">
@@ -127,7 +140,7 @@ export const sendEmail = async (
           <div style="background: white; padding: 30px; border-radius: 12px; text-align: center;">
             <h2 style="color: #92400e;">Application Received!</h2>
             <p>Thank you for applying as a <strong>${data.user?.role}</strong>.</p>
-            <p>We’ll review it within 24–48 hours.</p>
+            <p>We'll review it within 24–48 hours.</p>
             <a href="${frontendUrl}/pending-approval" style="background: #f59e0b; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px;">
               Check Status
             </a>
@@ -138,46 +151,43 @@ export const sendEmail = async (
    
     // 6. Password Reset Success Notification
     'password-reset-success': {
-  subject: 'Your Devcore Password Has Been Reset',
-  html: `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
-      <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
-        <h2 style="color: #16a34a;">Password Reset Successful!</h2>
-        <p>Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
-        <p>Your password has been successfully reset.</p>
-        <p style="color: #dc2626; font-weight: bold;">
-          If you did not make this change, please contact support immediately.
-        </p>
-        <a href="${frontendUrl}/profile/security" style="background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px;">
-          Review Security Settings
-        </a>
-      </div>
-    </div>
-  `,
-},
+      subject: 'Your Devcore Password Has Been Reset',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
+          <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
+            <h2 style="color: #16a34a;">Password Reset Successful!</h2>
+            <p>Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
+            <p>Your password has been successfully reset.</p>
+            <p style="color: #dc2626; font-weight: bold;">
+              If you did not make this change, please contact support immediately.
+            </p>
+            <a href="${frontendUrl}/profile/security" style="background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px;">
+              Review Security Settings
+            </a>
+          </div>
+        </div>
+      `,
+    },
 
-// 7. message received Notification
+    // 7. message received Notification
     'message-received-client': {
-  subject: 'Your Message Has Been Received Successfully',
-  html: `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
-      <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
-        <h2 style="color: #16a34a;">Message Recieved Successful!</h2>
-        <p>Hi <strong>${data.user?.firstName || 'there'}</strong>,</p>
-        <p></p>
-        <p style="color: #dc2626; font-weight: bold;">
-          If you did not make this change, please contact support immediately.
-        </p>
-        <a href="${frontendUrl}/profile/security" style="background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px;">
-          Review Security Settings
-        </a>
-      </div>
-    </div>
-  `,
-},
+      subject: 'Your Message Has Been Received Successfully',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f0fdf4;">
+          <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #bbf7d0; text-align: center;">
+            <h2 style="color: #16a34a;">Message Received Successfully!</h2>
+            <p>Hi <strong>${data.name || 'there'}</strong>,</p>
+            <p>Thank you for contacting us. We've received your message and will get back to you soon.</p>
+            <a href="${frontendUrl}" style="background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px;">
+              Visit Our Website
+            </a>
+          </div>
+        </div>
+      `,
+    },
 
-// Customer Contact Enquiry Notification
-'new-contact-inquiry': {
+    // Customer Contact Enquiry Notification
+    'new-contact-inquiry': {
       subject: `🔔 New Contact Form Inquiry from ${data.name}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #fef3c7;">
@@ -201,44 +211,44 @@ export const sendEmail = async (
       `,
     },
 
-    // Add to your templates object
-'reply-to-contact': {
-  subject: `Re: Your Inquiry - ${data.subject || 'Devcore'}`,
-  html: `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f8fafc;">
-      <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #e2e8f0;">
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-          <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-            <span style="color: white; font-weight: bold; font-size: 20px;">D</span>
+    // Reply to contact
+    'reply-to-contact': {
+      subject: `Re: Your Inquiry - ${data.subject || 'Devcore'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; background: #f8fafc;">
+          <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #e2e8f0;">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+              <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-weight: bold; font-size: 20px;">D</span>
+              </div>
+              <div>
+                <h2 style="margin: 0; color: #1e293b;">Devcore Support Team</h2>
+                <p style="margin: 5px 0 0; color: #64748b;">${data.replyFrom || 'Devcore Customer Support'}</p>
+              </div>
+            </div>
+            
+            <div style="border-left: 4px solid #6366f1; padding-left: 20px; margin: 30px 0;">
+              <p style="color: #64748b; margin: 5px 0;"><strong>Original Message:</strong></p>
+              <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 10px 0; font-style: italic; color: #475569;">
+                "${data.originalMessage}"
+              </div>
+            </div>
+            
+            <div style="margin: 30px 0;">
+              <p style="color: #1e293b; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${data.replyMessage}</p>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; margin: 5px 0;"><strong>Best regards,</strong></p>
+              <p style="color: #1e293b; margin: 5px 0;">${data.replyFrom || 'Devcore Support Team'}</p>
+              <p style="color: #64748b; margin: 5px 0;">
+                <a href="${frontendUrl}" style="color: #6366f1; text-decoration: none;">${frontendUrl}</a>
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 style="margin: 0; color: #1e293b;">Devcore Support Team</h2>
-            <p style="margin: 5px 0 0; color: #64748b;">${data.replyFrom || 'Devcore Customer Support'}</p>
-          </div>
         </div>
-        
-        <div style="border-left: 4px solid #6366f1; padding-left: 20px; margin: 30px 0;">
-          <p style="color: #64748b; margin: 5px 0;"><strong>Original Message:</strong></p>
-          <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 10px 0; font-style: italic; color: #475569;">
-            "${data.originalMessage}"
-          </div>
-        </div>
-        
-        <div style="margin: 30px 0;">
-          <p style="color: #1e293b; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${data.replyMessage}</p>
-        </div>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-          <p style="color: #64748b; margin: 5px 0;"><strong>Best regards,</strong></p>
-          <p style="color: #1e293b; margin: 5px 0;">${data.replyFrom || 'Devcore Support Team'}</p>
-          <p style="color: #64748b; margin: 5px 0;">
-            <a href="${process.env.FRONTEND_URL}" style="color: #6366f1; text-decoration: none;">${process.env.FRONTEND_URL}</a>
-          </p>
-        </div>
-      </div>
-    </div>
-  `,
-}
+      `,
+    }
   };
 
   const template = templates[type];
@@ -246,15 +256,32 @@ export const sendEmail = async (
     throw new Error(`Email template "${type}" not found`);
   }
 
+  const { subject, html } = template;
 
-  const { subject, html } = templates[type];
+  try {
+    await transporter.sendMail({
+      from: `"Devcore" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      to,
+      subject,
+      html,
+    });
 
-  await transporter.sendMail({
-    from: `"Devcore" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-    to,
-    subject,
-    html,
+    console.log(`✅ Email sent → ${type} → ${to}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`❌ Email failed → ${type} → ${to}:`, error.message);
+    // Don't throw error - let the app continue even if email fails
+    return { success: false, error: error.message };
+  }
+};
+
+// Optional: Send email asynchronously (don't wait for result)
+export const sendEmailAsync = (
+  to: string,
+  type: Parameters<typeof sendEmail>[1],
+  data: any = {}
+) => {
+  sendEmail(to, type, data).catch(err => {
+    console.error('Async email error:', err);
   });
-
-  console.log(`Email sent → ${type} → ${to}`);
 };
