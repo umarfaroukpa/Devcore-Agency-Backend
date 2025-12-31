@@ -2,7 +2,7 @@ services:
   - type: web
     name: devcore-backend
     runtime: node
-    buildCommand: npm install && npm run build && npx prisma generate
+    buildCommand: npm install --include=dev && npm run build
     startCommand: node dist/server.js
     envVars:
       - key: NODE_ENV
@@ -10,7 +10,7 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: postgresql://devcore_user:U7JgJOZDty1TIVQtoVq4Xa5JwYh7vQLG@dpg-d56091ngi27c73drvfq0-a-pooler.oregon-postgres.render.com/devcore?pgbouncer=true&connection_limit=1
+        sync: false
       - key: DIRECT_DATABASE_URL
-        value: postgresql://devcore_user:U7JgJOZDty1TIVQtoVq4Xa5JwYh7vQLG@dpg-d56091ngi27c73drvfq0-a-pooler.oregon-postgres.render.com/devcore?pgbouncer=true
+        sync: false
     plan: free
