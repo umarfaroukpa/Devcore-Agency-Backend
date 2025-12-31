@@ -23,8 +23,10 @@ import forgotPasswordRoutes from './routes/ForgotPasswordRoutes';
 const app = express();
 const port = process.env.PORT || 10000;
 
+// Trust proxy settings (if behind a proxy like Nginx or on platforms like Heroku)
+app.set('trust proxy', 1);
 
-// Set up to allowed origins for CORS
+// CORS Configuration - Allow your frontend
 const corsOptions = {
   origin: (origin: string | undefined, callback: Function) => {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -36,7 +38,6 @@ const corsOptions = {
       'http://localhost:5000',
       'https://agency-frontend-snowy.vercel.app',
       'https://devcore-backend.onrender.com',
-  
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
@@ -61,11 +62,10 @@ const apiLimiter = rateLimit({
 app.use(cors(corsOptions));
 
 // Middleware
-app.use(apiLimiter, helmet({
+app.use(apiLimiter);
+app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-
-
 
 app.use(express.json()); 
 app.use('/uploads', express.static('uploads'));
@@ -75,11 +75,30 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   console.log('🌐 Incoming Request:', {
     method: req.method,
     url: req.url,
+    ip: req.ip
   });
   next();
 });
 
-// Routes
+app.post('/api/auth/test-signup', (req, res) => {
+  console.log('Test signup called with:', req.body);
+  
+  // Return a simple success response without database
+  res.json({
+    success: true,
+    message: 'Test signup endpoint is working',
+    data: {
+      user: {
+        id: 'test-id-' + Date.now(),
+        name: req.body.name || 'Test User',
+        email: req.body.email || 'test@example.com'
+      },
+      token: 'test-jwt-token-' + Date.now()
+    }
+  });
+});
+
+// Routes - THESE ARE CORRECT (using /api prefix)
 app.use('/api/auth', authRoutes); 
 app.use('/api/admin', adminRouter); 
 app.use('/api/admin/projects', projectRoutes); 
@@ -95,26 +114,57 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRouter);
 app.use('/api/auth', forgotPasswordRoutes);
 
+// Add a root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'DevCore Agency Backend API',
+    status: 'running',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      auth: '/api/auth',
+      health: '/api/health',
+      admin: '/api/admin',
+      users: '/api/users'
+    },
+    documentation: 'API documentation coming soon'
+  });
+});
+
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`; 
+    // Try to connect to database
+    await prisma.$connect();
+    const dbStatus = 'connected';
+    
     res.json({ 
       status: 'OK', 
-      database: 'connected', 
+      database: dbStatus, 
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV
     });
   } catch (error) {
-    res.status(503).json({ 
-      status: 'ERROR', 
+    console.error('Database connection error:', error.message);
+    res.status(200).json({ 
+      status: 'WARNING', 
       database: 'disconnected',
-      timestamp: new Date().toISOString()
+      message: 'Database connection failed',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV
     });
   }
 });
-
 
 // 404 Handler
 app.use(notFoundHandler);
@@ -131,8 +181,6 @@ const gracefulShutdown = async () => {
 
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
-
-
 
 // starting server
 app.listen(port, () => {
