@@ -80,20 +80,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.get('/api/debug', (req, res) => {
-  const dbUrl = process.env.DATABASE_URL || 'NOT SET';
-  const hasSSL = dbUrl.includes('sslmode=require');
-  
-  res.json({
-    environment: process.env.NODE_ENV,
-    databaseUrl: dbUrl ? 'Set' : 'Not set',
-    hasSSL: hasSSL,
-    databaseUrlPreview: dbUrl ? `${dbUrl.split('@')[0]}@***` : 'No URL',
-    nodeVersion: process.version,
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Routes - THESE ARE CORRECT (using /api prefix)
 app.use('/api/auth', authRoutes); 
 app.use('/api/admin', adminRouter); 
@@ -127,45 +113,32 @@ app.get('/', (req, res) => {
   });
 });
 
-// Test endpoint
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'API is working!',
-    timestamp: new Date().toISOString()
-  });
-});
-
 
 // Health check
 app.get('/api/health', async (req, res) => {
-  const serverInfo = {
-    status: 'running',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    nodeVersion: process.version,
-    databaseUrl: process.env.DATABASE_URL ? 'configured' : 'not configured'
-  };
-
   try {
-    // Test database connection
+    // Just do a simple query instead of connecting
     await prisma.$queryRaw`SELECT 1`;
-    res.json({
-      ...serverInfo,
-      database: 'connected',
-      message: 'All systems operational'
-    });
-  } catch (error) {
-    console.error('Database health check failed:', error.message);
     
-    res.status(200).json({
-      ...serverInfo,
+    res.json({ 
+      status: 'OK', 
+      database: 'connected', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV
+    });
+  } catch (error: any) {
+    console.error('Database connection error:', error.message);
+    res.status(503).json({ 
+      status: 'ERROR', 
       database: 'disconnected',
-      message: 'Server running but database connection failed',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.message,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV
     });
   }
 });
+
 
 // 404 Handler
 app.use(notFoundHandler);
