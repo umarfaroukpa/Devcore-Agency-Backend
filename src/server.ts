@@ -80,21 +80,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.post('/api/auth/test-signup', (req, res) => {
-  console.log('Test signup called with:', req.body);
+app.get('/api/debug', (req, res) => {
+  const dbUrl = process.env.DATABASE_URL || 'NOT SET';
+  const hasSSL = dbUrl.includes('sslmode=require');
   
-  // Return a simple success response without database
   res.json({
-    success: true,
-    message: 'Test signup endpoint is working',
-    data: {
-      user: {
-        id: 'test-id-' + Date.now(),
-        name: req.body.name || 'Test User',
-        email: req.body.email || 'test@example.com'
-      },
-      token: 'test-jwt-token-' + Date.now()
-    }
+    environment: process.env.NODE_ENV,
+    databaseUrl: dbUrl ? 'Set' : 'Not set',
+    hasSSL: hasSSL,
+    databaseUrlPreview: dbUrl ? `${dbUrl.split('@')[0]}@***` : 'No URL',
+    nodeVersion: process.version,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -142,26 +138,31 @@ app.get('/api/test', (req, res) => {
 
 // Health check
 app.get('/api/health', async (req, res) => {
+  const serverInfo = {
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    nodeVersion: process.version,
+    databaseUrl: process.env.DATABASE_URL ? 'configured' : 'not configured'
+  };
+
   try {
-    // Try to connect to database
-    await prisma.$connect();
-    const dbStatus = 'connected';
-    
-    res.json({ 
-      status: 'OK', 
-      database: dbStatus, 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV
+    // Test database connection
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      ...serverInfo,
+      database: 'connected',
+      message: 'All systems operational'
     });
   } catch (error) {
-    console.error('Database connection error:', error.message);
-    res.status(200).json({ 
-      status: 'WARNING', 
+    console.error('Database health check failed:', error.message);
+    
+    res.status(200).json({
+      ...serverInfo,
       database: 'disconnected',
-      message: 'Database connection failed',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV
+      message: 'Server running but database connection failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
