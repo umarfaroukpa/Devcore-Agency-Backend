@@ -5,7 +5,7 @@ async function main() {
   console.log('🔧 Creating invite codes...\n');
 
   const codes = [
-    {code: 'SUPERADMINA1', role: 'SUPER_ADMIN' },
+    {code: 'SUPADMNA1', role: 'SUPER_ADMIN' },
     { code: 'ADMINA1', role: 'ADMIN' },
     { code: 'DEVEL1', role: 'DEVELOPER' },
     { code: 'DEVEL2', role: 'DEVELOPER' },
@@ -24,10 +24,11 @@ async function main() {
       });
       console.log(`✅ Created: ${code} (${role})`);
     } catch (error) {
-      if (error.code === 'P2002') {
+      const err = error as any;
+      if (err.code === 'P2002') {
         console.log(`⏭️  Already exists: ${code}`);
       } else {
-        console.error(`❌ Error creating ${code}:`, error.message);
+        console.error(`❌ Error creating ${code}:`, err.message);
       }
     }
   }
